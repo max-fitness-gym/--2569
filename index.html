@@ -31,6 +31,7 @@ td{padding:8px 4px;border-bottom:1px solid var(--line)}
 th.r,td.r{text-align:right;font-variant-numeric:tabular-nums}
 tr:last-child td{border-bottom:0}.empty{color:var(--mute);text-align:center}
 svg{width:100%;height:auto;display:block}
+.lg{display:flex;gap:14px;font-size:12.5px;margin-top:8px;color:var(--mute)}.lg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
 #msg{display:none;background:var(--card);border:1px solid var(--dn);color:var(--dn);padding:10px 12px;border-radius:8px;margin-bottom:12px}
 </style>
 </head>
@@ -51,40 +52,52 @@ svg{width:100%;height:auto;display:block}
  </div>
 
  <div class="grid two">
-  <div class="card"><h2>ยอดขายรายวัน (บาท)</h2><div id="line"></div></div>
-  <div class="card"><h2>ยอดขายตามช่องทางขาย</h2><div id="bars"></div></div>
+  <div class="card"><h2>ยอดขายรายวัน: ราคา เทียบ ยอดสุทธิ (บาท)</h2><div id="line"></div>
+   <div class="lg"><span><i style="background:var(--c2)"></i>ราคา</span><span><i style="background:var(--c1)"></i>ยอดสุทธิ</span></div></div>
+  <div class="card"><h2>ยอดสุทธิตามช่องทางขาย</h2><div id="bars"></div></div>
  </div>
 
  <div class="grid four">
   <div class="card"><h2>5 อันดับลูกค้า B2B</h2><div class="scroll"><table id="t-b2b"></table></div></div>
+  <div class="card"><h2>5 อันดับลูกค้ายอดคงค้าง</h2><div class="scroll"><table id="t-ar"></table></div></div>
   <div class="card"><h2>5 อันดับสินค้าพรีออเดอร์</h2><div class="scroll"><table id="t-pre"></table></div></div>
   <div class="card"><h2>5 อันดับสินค้าขายดี</h2><div class="scroll"><table id="t-top"></table></div></div>
  </div>
 </div>
 
 <script>
-/* ===== ตั้งค่า: แก้ชื่อไฟล์/ชื่อคอลัมน์ให้ตรงกับไฟล์ที่ export จากแอปได้ที่นี่ ===== */
+/* ===== ตั้งค่า ===== */
 const CFG = {
-  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbwQp18kWTL5hlJQFzoFznMylmPP2jpuhscmnilyU4F2GTQ-76T9syKtpSg21tCAVRzC/exec',   // วางลิงก์ Web App (ลงท้ายด้วย /exec) จาก Google Apps Script ตรงนี้
-  url: 'data.json',     // ใช้ไฟล์นี้แทน ถ้าเว้น appsScriptUrl ว่างไว้
-  orders:      { date:'date', type:'doc_type', seg:'segment', ch:'channel', cust:'customer', prod:'product', qty:'qty', amt:'amount' },
-  receivables: { date:'invoice_date', cust:'customer', days:'overdue_days', amt:'amount' },
-  preorders:   { date:'order_date', prod:'product', qty:'qty', due:'due_date' }
+  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbzTKgve92OT2JMx9jv2YszGVbMAoXZszOW_mQbUfMExSqpZl6rq5gxBluhEESJ2-Fl6/exec',
+  B2B_CHANNEL: 'line b2b',        // ค่าในคอลัมน์ "ช่องทาง" ที่ถือเป็น B2B (ที่เหลือทั้งหมดเป็น B2C)
+  EXCLUDE_CANCELLED: true,        // true = ไม่นับแถวที่มีค่าในคอลัมน์ "ยกเลิกใน shopee"
+  COL: { date:'วันที่ซื้อ', order:'เลขที่คำสั่งซื้อ', prod:'รุ่น', qty:'จำนวนขาย', pre:'พรีออเดอร์',
+         cust:'ชื่อลูกค้า', cancel:'ยกเลิกใน shopee', ch:'ช่องทาง', price:'ราคา', net:'ยอดสุทธิ', ar:'ยอดคงค้าง' }
 };
-/* ======================================================================== */
+/* ================== */
 
-let D = { orders:[], receivables:[], preorders:[] };
+let ROWS = [];
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const num = v => Number(v) || 0;
+const num = v => Number(String(v ?? '').replace(/[,฿\s]/g, '')) || 0;
+const norm = s => String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 const fmt = n => Math.round(n).toLocaleString('th-TH');
 const money = v => v >= 1e6 ? '฿' + (v/1e6).toFixed(2) + ' ล้าน' : '฿' + fmt(v);
 const short = v => v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v >= 1e3 ? Math.round(v/1e3) + 'k' : String(Math.round(v));
 const monthName = k => new Date(+k.slice(0,4), +k.slice(5,7)-1, 1).toLocaleDateString('th-TH', { month:'long', year:'numeric' });
 const dayName = d => new Date(d).toLocaleDateString('th-TH', { day:'numeric', month:'short' });
-const mapRows = (rows, m) => (rows || []).map(r => { const o = {}; for (const k in m) o[k] = r[m[k]]; return o; });
 const inM = (d, sel) => sel === 'all' || String(d).startsWith(sel);
 const prevKey = k => { let y = +k.slice(0,4), m = +k.slice(5,7) - 1; if (m === 0) { y--; m = 12; } return y + '-' + String(m).padStart(2,'0'); };
+const marked = v => { const s = norm(v); return s !== '' && !['-','no','false','0','ไม่','n'].includes(s); };
+
+function parseDate(v) {
+  const s = String(v ?? '').trim(); let y, m, d, a;
+  if ((a = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) { y = +a[1]; m = +a[2]; d = +a[3]; }
+  else if ((a = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/))) { d = +a[1]; m = +a[2]; y = +a[3]; if (y < 100) y += 2000; }
+  else return '';
+  if (y > 2400) y -= 543;
+  return y + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+}
 
 function group(rows, keyFn, init, add) {
   const g = new Map();
@@ -93,23 +106,22 @@ function group(rows, keyFn, init, add) {
 }
 
 function calc(sel) {
-  const o = D.orders.filter(r => inM(r.date, sel));
-  const sum = f => o.filter(f).reduce((a, r) => a + num(r.amt), 0);
-  const total = o.reduce((a, r) => a + num(r.amt), 0);
-  return {
-    o, so: sum(r => r.type === 'SO'), fo: sum(r => r.type === 'FO'),
-    b2c: o.filter(r => r.seg === 'B2C').length, b2b: o.filter(r => r.seg === 'B2B').length,
-    aov: o.length ? total / o.length : 0
-  };
+  const o = ROWS.filter(r => inM(r.date, sel));
+  const sum = f => o.filter(f).reduce((a, r) => a + r.net, 0);
+  const ord = f => new Set(o.filter(f).map(r => r.order)).size;
+  const n = ord(() => true);
+  return { o, so: sum(r => r.so), fo: sum(r => r.fo),
+    b2cN: ord(r => !r.b2b), b2cV: sum(r => !r.b2b), b2bN: ord(r => r.b2b), b2bV: sum(r => r.b2b),
+    aov: n ? sum(() => true) / n : 0 };
 }
 
-function delta(id, cur, prev, sel) {
-  const el = $(id);
-  if (sel === 'all') { el.className = 'd'; el.textContent = 'ทุกเดือนรวมกัน'; return; }
-  if (!prev) { el.className = 'd'; el.textContent = 'ไม่มีข้อมูลเดือนก่อน'; return; }
+function delta(id, cur, prev, sel, pre) {
+  const el = $(id), p0 = pre ? pre + ' · ' : '';
+  if (sel === 'all') { el.className = 'd'; el.textContent = p0 + 'ทุกเดือนรวมกัน'; return; }
+  if (!prev) { el.className = 'd'; el.textContent = p0 + 'ไม่มีข้อมูลเดือนก่อน'; return; }
   const p = (cur - prev) / prev * 100;
-  el.className = 'd ' + (p >= 0 ? 'up' : 'dn');
-  el.textContent = (p >= 0 ? '▲ ' : '▼ ') + Math.abs(p).toFixed(1) + '% จากเดือนก่อน';
+  el.className = 'd';
+  el.innerHTML = esc(p0) + `<span class="${p >= 0 ? 'up' : 'dn'}">${p >= 0 ? '▲ ' : '▼ '}${Math.abs(p).toFixed(1)}% จากเดือนก่อน</span>`;
 }
 
 function table(id, heads, rows) {
@@ -121,19 +133,18 @@ function table(id, heads, rows) {
 function lineChart(pts) {
   const W = 640, H = 240, p = { l:48, r:10, t:10, b:26 };
   if (!pts.length) { $('line').innerHTML = '<p class="empty">ไม่มีข้อมูล</p>'; return; }
-  const mx = Math.max(...pts.map(q => q.v), 1), pw = Math.pow(10, Math.floor(Math.log10(mx))), max = Math.ceil(mx / pw) * pw;
+  const mx = Math.max(...pts.map(q => Math.max(q.a, q.b)), 1), pw = Math.pow(10, Math.floor(Math.log10(mx))), max = Math.ceil(mx / pw) * pw;
   const n = pts.length, x = i => p.l + (n > 1 ? i * (W - p.l - p.r) / (n - 1) : 0), y = v => H - p.b - v / max * (H - p.t - p.b);
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="กราฟยอดขายรายวัน">`;
   for (let g = 0; g <= 4; g++) { const v = max / 4 * g; s += `<line x1="${p.l}" x2="${W-p.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${p.l-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--mute)">${short(v)}</text>`; }
   [...new Set([0, Math.floor(n/4), Math.floor(n/2), Math.floor(n*3/4), n-1])].forEach(i => s += `<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="11" fill="var(--mute)">${esc(pts[i].label)}</text>`);
-  const line = pts.map((q, i) => `${x(i)},${y(q.v)}`).join(' ');
-  s += `<polygon points="${x(0)},${y(0)} ${line} ${x(n-1)},${y(0)}" fill="var(--c1)" opacity=".12"/><polyline points="${line}" fill="none" stroke="var(--c1)" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
-  $('line').innerHTML = s;
+  const pl = (k, col, w) => `<polyline points="${pts.map((q, i) => x(i) + ',' + y(q[k])).join(' ')}" fill="none" stroke="var(${col})" stroke-width="${w}" stroke-linejoin="round"/>`;
+  $('line').innerHTML = s + pl('a', '--c2', 2) + pl('b', '--c1', 2.5) + '</svg>';
 }
 
 function barChart(items) {
   if (!items.length) { $('bars').innerHTML = '<p class="empty">ไม่มีข้อมูล</p>'; return; }
-  const tot = items.reduce((a, c) => a + c[1], 0), top = items[0][1] || 1, cols = ['--c1','--c2','--c3'];
+  const tot = items.reduce((a, c) => a + c[1], 0) || 1, top = items[0][1] || 1, cols = ['--c1','--c2','--c3'];
   let b = `<svg viewBox="0 0 300 ${items.length * 42 + 8}" role="img" aria-label="กราฟยอดขายตามช่องทาง">`;
   items.forEach((c, i) => { const yy = 8 + i * 42, w = Math.max(c[1] / top * 140, 2);
     b += `<text x="0" y="${yy+12}" font-size="12.5" fill="var(--ink)">${esc(c[0])}</text><rect x="0" y="${yy+18}" width="${w}" height="14" rx="3" fill="var(${cols[i % 3]})"/><text x="${w+8}" y="${yy+30}" font-size="12" fill="var(--mute)">${money(c[1])} (${Math.round(c[1]/tot*100)}%)</text>`; });
@@ -142,58 +153,56 @@ function barChart(items) {
 
 function render() {
   const sel = $('month').value, c = calc(sel), pv = sel === 'all' ? null : calc(prevKey(sel));
-  $('k-so').textContent = money(c.so);  delta('d-so',  c.so,  pv && pv.so,  sel);
-  $('k-fo').textContent = money(c.fo);  delta('d-fo',  c.fo,  pv && pv.fo,  sel);
-  $('k-b2c').textContent = fmt(c.b2c);  delta('d-b2c', c.b2c, pv && pv.b2c, sel);
-  $('k-b2b').textContent = fmt(c.b2b);  delta('d-b2b', c.b2b, pv && pv.b2b, sel);
+  $('k-so').textContent = money(c.so);   delta('d-so',  c.so,   pv && pv.so,   sel);
+  $('k-fo').textContent = money(c.fo);   delta('d-fo',  c.fo,   pv && pv.fo,   sel);
+  $('k-b2c').textContent = fmt(c.b2cN);  delta('d-b2c', c.b2cN, pv && pv.b2cN, sel, 'ยอดสุทธิ ' + money(c.b2cV));
+  $('k-b2b').textContent = fmt(c.b2bN);  delta('d-b2b', c.b2bN, pv && pv.b2bN, sel, 'ยอดสุทธิ ' + money(c.b2bV));
   $('k-aov').textContent = '฿' + fmt(c.aov); delta('d-aov', c.aov, pv && pv.aov, sel);
 
-  // กราฟรายวัน
-  const byDay = group(c.o, r => String(r.date).slice(0,10), () => ({ v:0 }), (a, r) => a.v += num(r.amt));
+  const byDay = group(c.o, r => r.date, () => ({ a:0, b:0 }), (a, r) => { a.a += r.price; a.b += r.net; });
   let pts;
-  if (sel === 'all') pts = [...byDay.keys()].sort().map(d => ({ label: dayName(d), v: byDay.get(d).v }));
-  else { const y = +sel.slice(0,4), m = +sel.slice(5,7), n = new Date(y, m, 0).getDate();
-    pts = Array.from({ length: n }, (_, i) => { const d = `${sel}-${String(i+1).padStart(2,'0')}`; return { label: dayName(d), v: byDay.has(d) ? byDay.get(d).v : 0 }; }); }
+  if (sel === 'all') pts = [...byDay.keys()].filter(Boolean).sort().map(d => ({ label: dayName(d), a: byDay.get(d).a, b: byDay.get(d).b }));
+  else { const n = new Date(+sel.slice(0,4), +sel.slice(5,7), 0).getDate();
+    pts = Array.from({ length: n }, (_, i) => { const d = `${sel}-${String(i+1).padStart(2,'0')}`, v = byDay.get(d) || { a:0, b:0 }; return { label: dayName(d), a: v.a, b: v.b }; }); }
   lineChart(pts);
 
-  // ช่องทางขาย
-  barChart([...group(c.o, r => r.ch || 'ไม่ระบุ', () => ({ v:0 }), (a, r) => a.v += num(r.amt))].map(([k, a]) => [k, a.v]).sort((a, b) => b[1] - a[1]).slice(0, 6));
+  barChart([...group(c.o, r => r.ch || 'ไม่ระบุ', () => ({ v:0 }), (a, r) => a.v += r.net)].map(([k, a]) => [k, a.v]).sort((a, b) => b[1] - a[1]).slice(0, 8));
 
-  // Top 5 ลูกค้า B2B
-  table('t-b2b', ['ลูกค้า', 'ออเดอร์', 'ยอดซื้อ (฿)'],
-    [...group(c.o.filter(r => r.seg === 'B2B'), r => r.cust, () => ({ n:0, v:0 }), (a, r) => { a.n++; a.v += num(r.amt); })]
-      .sort((a, b) => b[1].v - a[1].v).slice(0, 5).map(([k, a]) => [k, fmt(a.n), fmt(a.v)]));
-
-  // Top 5 พรีออเดอร์
-  table('t-pre', ['สินค้า', 'จำนวน', 'กำหนดส่ง'],
-    [...group(D.preorders.filter(r => inM(r.date, sel)), r => r.prod, () => ({ q:0, due:'' }), (a, r) => { a.q += num(r.qty); if (r.due && (!a.due || r.due < a.due)) a.due = r.due; })]
-      .sort((a, b) => b[1].q - a[1].q).slice(0, 5).map(([k, a]) => [k, fmt(a.q), a.due ? dayName(a.due) : '-']));
-
-  // Top 5 สินค้าขายดี
-  table('t-top', ['สินค้า', 'จำนวน', 'ยอดขาย (฿)'],
-    [...group(c.o, r => r.prod, () => ({ q:0, v:0 }), (a, r) => { a.q += num(r.qty); a.v += num(r.amt); })]
-      .sort((a, b) => b[1].v - a[1].v).slice(0, 5).map(([k, a]) => [k, fmt(a.q), fmt(a.v)]));
+  const top5 = (m, f) => [...m].sort((a, b) => b[1][f] - a[1][f]).slice(0, 5);
+  table('t-b2b', ['ลูกค้า', 'ออเดอร์', 'ยอดสุทธิ (฿)'],
+    top5(group(c.o.filter(r => r.b2b), r => r.cust || 'ไม่ระบุ', () => ({ o:new Set(), v:0 }), (a, r) => { a.o.add(r.order); a.v += r.net; }), 'v').map(([k, a]) => [k, fmt(a.o.size), fmt(a.v)]));
+  table('t-ar', ['ลูกค้า', 'ยอดคงค้าง (฿)'],
+    top5(group(c.o.filter(r => r.ar > 0), r => r.cust || 'ไม่ระบุ', () => ({ v:0 }), (a, r) => a.v += r.ar), 'v').map(([k, a]) => [k, fmt(a.v)]));
+  table('t-pre', ['รุ่น', 'จำนวน'],
+    top5(group(c.o.filter(r => r.pre), r => r.prod || 'ไม่ระบุ', () => ({ q:0 }), (a, r) => a.q += r.qty), 'q').map(([k, a]) => [k, fmt(a.q)]));
+  table('t-top', ['รุ่น', 'จำนวน', 'ยอดเงิน (฿)'],
+    top5(group(c.o, r => r.prod || 'ไม่ระบุ', () => ({ q:0, v:0 }), (a, r) => { a.q += r.qty; a.v += r.net; }), 'q').map(([k, a]) => [k, fmt(a.q), fmt(a.v)]));
 
   $('sub').textContent = sel === 'all' ? 'ทุกเดือน' : monthName(sel);
 }
 
+function warn(t) { $('msg').style.display = 'block'; $('msg').textContent = t; }
+
 async function init() {
   try {
-    const src = CFG.appsScriptUrl || CFG.url;
-    const res = await fetch(src + (src.includes('?') ? '&' : '?') + 't=' + Date.now());
+    const res = await fetch(CFG.appsScriptUrl + '?t=' + Date.now());
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const j = await res.json();
-    if (!j.orders || !j.orders.length) {
-      $('msg').style.display = 'block';
-      $('msg').textContent = 'เชื่อมต่อได้ แต่ไม่พบแถวข้อมูลในชีต orders — ตรวจชื่อชีตและหัวคอลัมน์ใน Google Sheet (ข้อมูลที่ได้รับ: ' + JSON.stringify({ orders: (j.orders || []).length + ' แถว', preorders: (j.preorders || []).length + ' แถว' }) + ' · ชีตที่พบใน Sheet: ' + ((j._sheetNames || []).join(', ') || 'ไม่พบ') + ')';
+    const j = await res.json(), raw = j.rows || [], C = CFG.COL;
+    if (!raw.length) warn('เชื่อมต่อได้ แต่ไม่พบแถวข้อมูล (แท็บที่อ่าน: ' + (j._sheet || 'ไม่พบ') + ' · แท็บทั้งหมด: ' + (j._sheetNames || []).join(', ') + ')');
+    else {
+      const have = Object.keys(raw[0]).map(norm), miss = Object.values(C).filter(h => !have.includes(norm(h)));
+      if (miss.length) warn('ไม่พบคอลัมน์: ' + miss.join(', ') + ' · หัวตารางที่พบ: ' + Object.keys(raw[0]).join(', '));
     }
-    D = { orders: mapRows(j.orders, CFG.orders), receivables: mapRows(j.receivables, CFG.receivables), preorders: mapRows(j.preorders, CFG.preorders) };
-  } catch (e) {
-    $('msg').style.display = 'block';
-    $('msg').textContent = 'โหลดข้อมูลไม่สำเร็จ (' + e.message + ') — ถ้าเปิดไฟล์โดยตรงในเครื่อง ให้เปิดผ่าน GitHub Pages หรือ local server แทน';
-    $('sub').textContent = 'ไม่มีข้อมูล';
-  }
-  const months = [...new Set(D.orders.map(r => String(r.date).slice(0,7)))].sort().reverse();
+    ROWS = raw.map(r => {
+      const n = {}; for (const k in r) n[norm(k)] = r[k];
+      const g = k => n[norm(C[k])], order = String(g('order') ?? '').trim(), ou = order.toUpperCase();
+      return { date: parseDate(g('date')), order, prod: String(g('prod') ?? '').trim(), qty: num(g('qty')), pre: marked(g('pre')),
+        cust: String(g('cust') ?? '').trim(), cancel: marked(g('cancel')), ch: String(g('ch') ?? '').trim(),
+        price: num(g('price')), net: num(g('net')), ar: num(g('ar')),
+        b2b: norm(g('ch')) === norm(CFG.B2B_CHANNEL), fo: ou.startsWith('FO'), so: ou.startsWith('S') };
+    }).filter(r => !(CFG.EXCLUDE_CANCELLED && r.cancel));
+  } catch (e) { warn('โหลดข้อมูลไม่สำเร็จ (' + e.message + ')'); $('sub').textContent = 'ไม่มีข้อมูล'; }
+  const months = [...new Set(ROWS.map(r => r.date.slice(0,7)).filter(Boolean))].sort().reverse();
   $('month').innerHTML = '<option value="all">ทุกเดือน</option>' + months.map(m => `<option value="${m}">${monthName(m)}</option>`).join('');
   if (months.length) $('month').value = months[0];
   $('month').addEventListener('change', render);
