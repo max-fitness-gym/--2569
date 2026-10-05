@@ -24,17 +24,17 @@
     .text-right { text-align: right; }
     .badge-preorder { background-color: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
     .badge-danger { background-color: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .loading { text-align: center; color: #9ca3af; font-size: 14px; }
   </style>
 </head>
 <body>
 
   <h1>📊 Executive Sales Dashboard</h1>
 
-  <!-- Summary Cards -->
   <div class="kpi-container">
     <div class="kpi-card">
       <div class="kpi-title">ยอดขายรวมสุทธิ</div>
-      <div class="kpi-value" id="totalRevenue">-</div>
+      <div class="kpi-value" id="totalRevenue">กำลังโหลด...</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-title">ลูกค้า B2C</div>
@@ -52,7 +52,6 @@
     </div>
   </div>
 
-  <!-- Row 1: Charts -->
   <div class="grid-container">
     <div class="card">
       <div class="card-title">📈 ยอดขายรายวัน (Daily Revenue Trend)</div>
@@ -64,7 +63,6 @@
     </div>
   </div>
 
-  <!-- Row 2: Top 5 B2B & Top 5 Outstanding -->
   <div class="grid-container">
     <div class="card">
       <div class="card-title">🏢 Top 5 ลูกค้า B2B ที่มียอดซื้อสูงสุด</div>
@@ -76,7 +74,7 @@
             <th class="text-right">ยอดซื้อสุทธิ (บาท)</th>
           </tr>
         </thead>
-        <tbody id="b2bTableBody"></tbody>
+        <tbody id="b2bTableBody"><tr><td colspan="3" class="loading">กำลังโหลดข้อมูล...</td></tr></tbody>
       </table>
     </div>
 
@@ -90,12 +88,11 @@
             <th class="text-right">ยอดคงค้าง (บาท)</th>
           </tr>
         </thead>
-        <tbody id="outstandingTableBody"></tbody>
+        <tbody id="outstandingTableBody"><tr><td colspan="3" class="loading">กำลังโหลดข้อมูล...</td></tr></tbody>
       </table>
     </div>
   </div>
 
-  <!-- Row 3: Pre-order & Product Models -->
   <div class="grid-container">
     <div class="card">
       <div class="card-title">📦 รายการรุ่นสินค้าที่มี พรีออเดอร์</div>
@@ -106,7 +103,7 @@
             <th class="text-right">จำนวนพรีออเดอร์ (ชิ้น)</th>
           </tr>
         </thead>
-        <tbody id="preorderTableBody"></tbody>
+        <tbody id="preorderTableBody"><tr><td colspan="2" class="loading">กำลังโหลดข้อมูล...</td></tr></tbody>
       </table>
     </div>
 
@@ -117,50 +114,68 @@
   </div>
 
   <script>
-    // 🔗 เปลี่ยน URL ตรงนี้เป็น Web App URL จาก Google Apps Script ของคุณ
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz6ttIrU2VOr3BkAvQxk0KuAUnSlfQS-_hjxN1FrguMlpMeH3vniSLJe_7WILhBDAPo/exec";
+    // ⚠️ นำ Web App URL จาก Google Apps Script (ลงท้ายด้วย /exec) มาวางตรงนี้
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec";
 
     async function loadDashboard() {
       try {
-        const res = await fetch(APPS_SCRIPT_URL);
+        // ใช้ redirect: 'follow' เพื่อให้รับข้อมูลจาก Apps Script ได้อย่างถูกต้อง
+        const res = await fetch(APPS_SCRIPT_URL, { redirect: 'follow' });
         const data = await res.json();
 
-        // 1. KPI Cards
-        document.getElementById('totalRevenue').innerText = '฿' + data.summary.totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2});
-        document.getElementById('b2cCount').innerText = data.summary.b2cCount.toLocaleString() + ' ราย';
-        document.getElementById('b2cRevenue').innerText = '฿' + data.summary.b2cRevenue.toLocaleString(undefined, {maximumFractionDigits: 0});
-        document.getElementById('b2bCount').innerText = data.summary.b2bCount.toLocaleString() + ' ราย';
-        document.getElementById('b2bRevenue').innerText = '฿' + data.summary.b2bRevenue.toLocaleString(undefined, {maximumFractionDigits: 0});
-        document.getElementById('preorderTotal').innerText = data.summary.totalPreorderItems.toLocaleString() + ' ชิ้น';
+        if (data.error) {
+          alert("เกิดข้อผิดพลาดจาก Apps Script: " + data.error);
+          return;
+        }
 
-        // 2. Top 5 B2B Table
+        // 1. Update KPI Cards
+        document.getElementById('totalRevenue').innerText = '฿' + (data.summary.totalRevenue || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
+        document.getElementById('b2cCount').innerText = (data.summary.b2cCount || 0).toLocaleString() + ' ราย';
+        document.getElementById('b2cRevenue').innerText = '฿' + (data.summary.b2cRevenue || 0).toLocaleString(undefined, {maximumFractionDigits: 0});
+        document.getElementById('b2bCount').innerText = (data.summary.b2bCount || 0).toLocaleString() + ' ราย';
+        document.getElementById('b2bRevenue').innerText = '฿' + (data.summary.b2bRevenue || 0).toLocaleString(undefined, {maximumFractionDigits: 0});
+        document.getElementById('preorderTotal').innerText = (data.summary.totalPreorderItems || 0).toLocaleString() + ' ชิ้น';
+
+        // 2. Render Top 5 B2B Table
         const b2bBody = document.getElementById('b2bTableBody');
-        b2bBody.innerHTML = data.top5B2B.map((item, index) => `
-          <tr>
-            <td>${index + 1}</td>
-            <td><strong>${item.name}</strong></td>
-            <td class="text-right">฿${item.value.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
-          </tr>
-        `).join('');
+        if (data.top5B2B && data.top5B2B.length > 0) {
+          b2bBody.innerHTML = data.top5B2B.map((item, index) => `
+            <tr>
+              <td>${index + 1}</td>
+              <td><strong>${item.name}</strong></td>
+              <td class="text-right">฿${item.value.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+            </tr>
+          `).join('');
+        } else {
+          b2bBody.innerHTML = '<tr><td colspan="3" class="loading">ไม่มีข้อมูล B2B</td></tr>';
+        }
 
-        // 3. Top 5 Outstanding Table
+        // 3. Render Top 5 Outstanding Table
         const outstandingBody = document.getElementById('outstandingTableBody');
-        outstandingBody.innerHTML = data.top5Outstanding.map((item, index) => `
-          <tr>
-            <td>${index + 1}</td>
-            <td><strong>${item.name}</strong></td>
-            <td class="text-right"><span class="badge-danger">฿${item.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</span></td>
-          </tr>
-        `).join('');
+        if (data.top5Outstanding && data.top5Outstanding.length > 0) {
+          outstandingBody.innerHTML = data.top5Outstanding.map((item, index) => `
+            <tr>
+              <td>${index + 1}</td>
+              <td><strong>${item.name}</strong></td>
+              <td class="text-right"><span class="badge-danger">฿${item.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</span></td>
+            </tr>
+          `).join('');
+        } else {
+          outstandingBody.innerHTML = '<tr><td colspan="3" class="loading">ไม่มียอดคงค้าง</td></tr>';
+        }
 
-        // 4. Pre-order Table
+        // 4. Render Pre-order Table
         const preorderBody = document.getElementById('preorderTableBody');
-        preorderBody.innerHTML = data.preorderModels.map(item => `
-          <tr>
-            <td><strong>${item.model}</strong></td>
-            <td class="text-right"><span class="badge-preorder">${item.qty} ชิ้น</span></td>
-          </tr>
-        `).join('');
+        if (data.preorderModels && data.preorderModels.length > 0) {
+          preorderBody.innerHTML = data.preorderModels.map(item => `
+            <tr>
+              <td><strong>${item.model}</strong></td>
+              <td class="text-right"><span class="badge-preorder">${item.qty} ชิ้น</span></td>
+            </tr>
+          `).join('');
+        } else {
+          preorderBody.innerHTML = '<tr><td colspan="2" class="loading">ไม่มีรายการพรีออเดอร์</td></tr>';
+        }
 
         // 5. Daily Trend Chart
         new Chart(document.getElementById('dailyTrendChart'), {
@@ -193,6 +208,7 @@
 
       } catch (err) {
         console.error("Failed to load dashboard data:", err);
+        document.getElementById('totalRevenue').innerText = "โหลดข้อมูลไม่สำเร็จ";
       }
     }
 
