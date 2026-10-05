@@ -62,6 +62,8 @@ svg{width:100%;height:auto;display:block}
   <div class="card"><h2>5 อันดับลูกค้ายอดคงค้าง</h2><div class="scroll"><table id="t-ar"></table></div></div>
   <div class="card"><h2>5 อันดับสินค้าพรีออเดอร์</h2><div class="scroll"><table id="t-pre"></table></div></div>
   <div class="card"><h2>5 อันดับสินค้าขายดี</h2><div class="scroll"><table id="t-top"></table></div></div>
+  <div class="card"><h2>5 อันดับจังหวัดที่ขายดี</h2><div class="scroll"><table id="t-prov"></table></div></div>
+  <div class="card"><h2>ยอดสุทธิตามช่องทางการชำระ</h2><div class="scroll"><table id="t-pay"></table></div></div>
  </div>
 </div>
 
@@ -72,7 +74,7 @@ const CFG = {
   B2B_CHANNEL: 'line b2b',        // ค่าในคอลัมน์ "ช่องทาง" ที่ถือเป็น B2B (ที่เหลือทั้งหมดเป็น B2C)
   EXCLUDE_CANCELLED: true,        // true = ไม่นับแถวที่มีค่าในคอลัมน์ "ยกเลิกใน shopee"
   COL: { date:'วันที่ซื้อ', order:'เลขที่คำสั่งซื้อ', prod:'รุ่น', qty:'จำนวนขาย', pre:'พรีออเดอร์',
-         cust:'ชื่อลูกค้า', cancel:'ยกเลิกใน shopee', ch:'ช่องทาง', price:'ราคา', net:'ยอดสุทธิ', ar:'ยอดคงค้าง' }
+         cust:'ชื่อลูกค้า', cancel:'ยกเลิกใน shopee', ch:'ช่องทาง', price:'ราคา', net:'ยอดสุทธิ', ar:'ยอดคงค้าง', prov:'จังหวัด', pay:'ช่องทางการชำระ' }
 };
 /* ================== */
 
@@ -178,6 +180,11 @@ function render() {
   table('t-top', ['รุ่น', 'จำนวน', 'ยอดเงิน (฿)'],
     top5(group(c.o, r => r.prod || 'ไม่ระบุ', () => ({ q:0, v:0 }), (a, r) => { a.q += r.qty; a.v += r.net; }), 'q').map(([k, a]) => [k, fmt(a.q), fmt(a.v)]));
 
+  table('t-prov', ['จังหวัด', 'ออเดอร์', 'ยอดสุทธิ (฿)'],
+    top5(group(c.o, r => r.prov || 'ไม่ระบุ', () => ({ o:new Set(), v:0 }), (a, r) => { a.o.add(r.order); a.v += r.net; }), 'v').map(([k, a]) => [k, fmt(a.o.size), fmt(a.v)]));
+  table('t-pay', ['ช่องทางการชำระ', 'ออเดอร์', 'ยอดสุทธิ (฿)'],
+    top5(group(c.o, r => r.pay || 'ไม่ระบุ', () => ({ o:new Set(), v:0 }), (a, r) => { a.o.add(r.order); a.v += r.net; }), 'v').map(([k, a]) => [k, fmt(a.o.size), fmt(a.v)]));
+
   $('sub').textContent = sel === 'all' ? 'ทุกเดือน' : monthName(sel);
 }
 
@@ -198,7 +205,7 @@ async function init() {
       const g = k => n[norm(C[k])], order = String(g('order') ?? '').trim(), ou = order.toUpperCase();
       return { date: parseDate(g('date')), order, prod: String(g('prod') ?? '').trim(), qty: num(g('qty')), pre: marked(g('pre')),
         cust: String(g('cust') ?? '').trim(), cancel: marked(g('cancel')), ch: String(g('ch') ?? '').trim(),
-        price: num(g('price')), net: num(g('net')), ar: num(g('ar')),
+        prov: String(g('prov') ?? '').trim(), pay: String(g('pay') ?? '').trim(), price: num(g('price')), net: num(g('net')), ar: num(g('ar')),
         b2b: norm(g('ch')) === norm(CFG.B2B_CHANNEL), fo: ou.startsWith('FO'), so: ou.startsWith('S') };
     }).filter(r => !(CFG.EXCLUDE_CANCELLED && r.cancel));
   } catch (e) { warn('โหลดข้อมูลไม่สำเร็จ (' + e.message + ')'); $('sub').textContent = 'ไม่มีข้อมูล'; }
