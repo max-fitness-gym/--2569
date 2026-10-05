@@ -32,7 +32,7 @@
 
   <h1>📊 Executive Sales Dashboard</h1>
 
-  <!-- การ์ด KPI ตัวเลขสรุปหลัก -->
+  <!-- การ์ด KPI -->
   <div class="kpi-container">
     <div class="kpi-card">
       <div class="kpi-title">ยอดขายรวมสุทธิ (S)</div>
@@ -52,7 +52,6 @@
       <div class="kpi-value" id="b2bCount">-</div>
       <div class="kpi-sub" id="b2bRevenue">-</div>
     </div>
-    <!-- 🎯 เปลี่ยนเป็นการ์ด ยอดเฉลี่ยต่อคำสั่งซื้อ (AOV) -->
     <div class="kpi-card">
       <div class="kpi-title">ยอดเฉลี่ยต่อคำสั่งซื้อ (AOV)</div>
       <div class="kpi-value" id="aovValue">-</div>
@@ -139,15 +138,15 @@
         }
 
         // 1. อัปเดตตัวเลขในการ์ด KPI
-        document.getElementById('totalRevenue').innerText = '฿' + (data.summary.totalRevenue || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
-        document.getElementById('totalRepairRevenue').innerText = '฿' + (data.summary.totalRepairRevenue || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
+        document.getElementById('totalRevenue').innerText = '฿' + (data.summary.totalRevenue || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('totalRepairRevenue').innerText = '฿' + (data.summary.totalRepairRevenue || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('b2cCount').innerText = (data.summary.b2cCount || 0).toLocaleString() + ' ราย';
         document.getElementById('b2cRevenue').innerText = '฿' + (data.summary.b2cRevenue || 0).toLocaleString(undefined, {maximumFractionDigits: 0});
         document.getElementById('b2bCount').innerText = (data.summary.b2bCount || 0).toLocaleString() + ' ราย';
         document.getElementById('b2bRevenue').innerText = '฿' + (data.summary.b2bRevenue || 0).toLocaleString(undefined, {maximumFractionDigits: 0});
         
         // 🎯 อัปเดต AOV
-        document.getElementById('aovValue').innerText = '฿' + (data.summary.avgOrderValue || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
+        document.getElementById('aovValue').innerText = '฿' + (data.summary.avgOrderValue || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
         document.getElementById('aovSub').innerText = 'จาก ' + (data.summary.totalOrders || 0).toLocaleString() + ' ออเดอร์ (S)';
 
         // 2. แสดงข้อมูลตาราง Top 5 B2B
