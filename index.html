@@ -1,311 +1,207 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <title>Sales & Repair Dashboard - GitHub Version</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
-    body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>แดชบอร์ดยอดขาย</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F3F5F7;--card:#fff;--ink:#16232E;--mute:#6B7A88;--line:#E1E6EB;--c1:#0F6E7A;--c2:#E08A1E;--c3:#5B6CC9;--up:#1E8A52;--dn:#C0392B}
+@media(prefers-color-scheme:dark){:root{--bg:#10181F;--card:#18232C;--ink:#E8EEF2;--mute:#8FA0AE;--line:#27343F;--c1:#3FB6C4;--c2:#F0A442;--c3:#8C9BF0;--up:#4CC585;--dn:#EF6F60}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans Thai',system-ui,sans-serif;padding:16px;font-size:14px}
+.wrap{max-width:1200px;margin:0 auto}
+.head{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+h1{font-size:20px;margin:0}.sub{color:var(--mute);font-size:13px;margin:2px 0 0}
+select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);min-width:170px}
+h2{font-size:15px;margin:0 0 12px}
+.grid{display:grid;gap:12px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:12px}
+.two{grid-template-columns:2fr 1fr;margin-bottom:12px}
+.four{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+@media(max-width:760px){.two,.four{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0}
+.kpi .l{color:var(--mute);font-size:12.5px}
+.kpi .v{font-size:24px;font-weight:700;margin:4px 0;border-left:4px solid var(--a);padding-left:8px}
+.kpi .d{font-size:12px;color:var(--mute)}.up{color:var(--up)!important}.dn{color:var(--dn)!important}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--mute);font-weight:500;padding:6px 4px;border-bottom:1px solid var(--line)}
+td{padding:8px 4px;border-bottom:1px solid var(--line)}
+th.r,td.r{text-align:right;font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}.empty{color:var(--mute);text-align:center}
+svg{width:100%;height:auto;display:block}
+#msg{display:none;background:var(--card);border:1px solid var(--dn);color:var(--dn);padding:10px 12px;border-radius:8px;margin-bottom:12px}
+</style>
 </head>
-<body class="p-4 md:p-8">
-  <div class="max-w-7xl mx-auto space-y-6">
-    
-    <!-- Header & File Input -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-gray-200 gap-4">
-      <div>
-        <h1 class="text-2xl font-bold text-slate-800"><i class="fa-solid fa-chart-pie text-indigo-600 mr-2"></i>Sales & Repair Analytics Dashboard</h1>
-        <p class="text-sm text-gray-500">รายงานสรุปผล ยอดขาย งานซ่อม และวิเคราะห์ข้อมูล B2B / B2C</p>
-      </div>
-      <div class="flex items-center gap-3">
-        <label class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition cursor-pointer flex items-center gap-2">
-          <i class="fa-solid fa-file-csv"></i> อัปโหลด CSV
-          <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="handleFileUpload(event)">
-        </label>
-      </div>
-    </div>
+<body>
+<div class="wrap">
+ <div class="head">
+  <div><h1>แดชบอร์ดยอดขาย</h1><p class="sub" id="sub">กำลังโหลดข้อมูล…</p></div>
+  <label>เดือน <select id="month" aria-label="กรองตามเดือน"></select></label>
+ </div>
+ <div id="msg"></div>
 
-    <!-- Cards Summary -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-        <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">คำสั่งซื้อ S</span>
-        <p class="text-sm font-medium text-gray-500 mt-2">ยอดขายรวมสุทธิ</p>
-        <p id="card-total-sales" class="text-xl font-bold text-slate-800 mt-1">฿0.00</p>
-        <p id="card-total-orders-s" class="text-xs text-gray-400 mt-1">0 คำสั่งซื้อ</p>
-      </div>
+ <div class="grid kpis">
+  <div class="card kpi" style="--a:var(--c1)"><div class="l">ยอดขาย SO</div><div class="v" id="k-so">-</div><div class="d" id="d-so"></div></div>
+  <div class="card kpi" style="--a:var(--c3)"><div class="l">ยอดขาย FO</div><div class="v" id="k-fo">-</div><div class="d" id="d-fo"></div></div>
+  <div class="card kpi" style="--a:var(--c2)"><div class="l">คำสั่งซื้อ B2C</div><div class="v" id="k-b2c">-</div><div class="d" id="d-b2c"></div></div>
+  <div class="card kpi" style="--a:var(--c1)"><div class="l">คำสั่งซื้อ B2B</div><div class="v" id="k-b2b">-</div><div class="d" id="d-b2b"></div></div>
+  <div class="card kpi" style="--a:var(--c3)"><div class="l">AOV ยอดขายเฉลี่ยต่อออเดอร์</div><div class="v" id="k-aov">-</div><div class="d" id="d-aov"></div></div>
+ </div>
 
-      <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-        <span class="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">คำสั่งซื้อ FO</span>
-        <p class="text-sm font-medium text-gray-500 mt-2">ยอดซ่อมรวม</p>
-        <p id="card-total-repair" class="text-xl font-bold text-slate-800 mt-1">฿0.00</p>
-        <p id="card-total-orders-fo" class="text-xs text-gray-400 mt-1">0 คำสั่งซื้อ</p>
-      </div>
+ <div class="grid two">
+  <div class="card"><h2>ยอดขายรายวัน (บาท)</h2><div id="line"></div></div>
+  <div class="card"><h2>ยอดขายตามช่องทางขาย</h2><div id="bars"></div></div>
+ </div>
 
-      <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-        <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">ทั่วไป</span>
-        <p class="text-sm font-medium text-gray-500 mt-2">ลูกค้า B2C</p>
-        <p id="card-b2c-sales" class="text-xl font-bold text-slate-800 mt-1">฿0.00</p>
-        <p id="card-b2c-orders" class="text-xs text-gray-400 mt-1">0 คำสั่งซื้อ</p>
-      </div>
+ <div class="grid four">
+  <div class="card"><h2>5 อันดับลูกค้า B2B</h2><div class="scroll"><table id="t-b2b"></table></div></div>
+  <div class="card"><h2>5 อันดับลูกค้ายอดคงค้าง</h2><div class="scroll"><table id="t-ar"></table></div></div>
+  <div class="card"><h2>5 อันดับสินค้าพรีออเดอร์</h2><div class="scroll"><table id="t-pre"></table></div></div>
+  <div class="card"><h2>5 อันดับสินค้าขายดี</h2><div class="scroll"><table id="t-top"></table></div></div>
+ </div>
+</div>
 
-      <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-        <span class="text-xs font-semibold text-purple-600 bg-purple-50 px-2 py-1 rounded-full">LINE B2B</span>
-        <p class="text-sm font-medium text-gray-500 mt-2">ลูกค้า B2B</p>
-        <p id="card-b2b-sales" class="text-xl font-bold text-slate-800 mt-1">฿0.00</p>
-        <p id="card-b2b-orders" class="text-xs text-gray-400 mt-1">0 คำสั่งซื้อ</p>
-      </div>
+<script>
+/* ===== ตั้งค่า: แก้ชื่อไฟล์/ชื่อคอลัมน์ให้ตรงกับไฟล์ที่ export จากแอปได้ที่นี่ ===== */
+const CFG = {
+  appsScriptUrl: '',   // วางลิงก์ Web App (ลงท้ายด้วย /exec) จาก Google Apps Script ตรงนี้
+  url: 'data.json',     // ใช้ไฟล์นี้แทน ถ้าเว้น appsScriptUrl ว่างไว้
+  orders:      { date:'date', type:'doc_type', seg:'segment', ch:'channel', cust:'customer', prod:'product', qty:'qty', amt:'amount' },
+  receivables: { date:'invoice_date', cust:'customer', days:'overdue_days', amt:'amount' },
+  preorders:   { date:'order_date', prod:'product', qty:'qty', due:'due_date' }
+};
+/* ======================================================================== */
 
-      <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-        <span class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">เฉพาะคำสั่งซื้อ S</span>
-        <p class="text-sm font-medium text-gray-500 mt-2">ยอดเฉลี่ย AOV</p>
-        <p id="card-aov" class="text-xl font-bold text-slate-800 mt-1">฿0.00</p>
-        <p class="text-xs text-gray-400 mt-1">ยอดขาย S / คำสั่งซื้อ S</p>
-      </div>
-    </div>
+let D = { orders:[], receivables:[], preorders:[] };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num = v => Number(v) || 0;
+const fmt = n => Math.round(n).toLocaleString('th-TH');
+const money = v => v >= 1e6 ? '฿' + (v/1e6).toFixed(2) + ' ล้าน' : '฿' + fmt(v);
+const short = v => v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v >= 1e3 ? Math.round(v/1e3) + 'k' : String(Math.round(v));
+const monthName = k => new Date(+k.slice(0,4), +k.slice(5,7)-1, 1).toLocaleDateString('th-TH', { month:'long', year:'numeric' });
+const dayName = d => new Date(d).toLocaleDateString('th-TH', { day:'numeric', month:'short' });
+const mapRows = (rows, m) => (rows || []).map(r => { const o = {}; for (const k in m) o[k] = r[m[k]]; return o; });
+const inM = (d, sel) => sel === 'all' || String(d).startsWith(sel);
+const prevKey = k => { let y = +k.slice(0,4), m = +k.slice(5,7) - 1; if (m === 0) { y--; m = 12; } return y + '-' + String(m).padStart(2,'0'); };
 
-    <!-- Charts -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="lg:col-span-2 bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-        <h3 class="text-base font-bold text-slate-800 mb-4"><i class="fa-regular fa-calendar-days text-indigo-500 mr-2"></i>กราฟยอดขายรายวัน</h3>
-        <div class="h-72"><canvas id="dailySalesChart"></canvas></div>
-      </div>
-      <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-        <h3 class="text-base font-bold text-slate-800 mb-4"><i class="fa-solid fa-chart-pie text-indigo-500 mr-2"></i>ยอดขายแบ่งตามช่องทาง</h3>
-        <div class="h-72"><canvas id="channelChart"></canvas></div>
-      </div>
-    </div>
+function group(rows, keyFn, init, add) {
+  const g = new Map();
+  rows.forEach(r => { const k = keyFn(r); if (!g.has(k)) g.set(k, init()); add(g.get(k), r); });
+  return g;
+}
 
-    <!-- Tables -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-        <h3 class="text-base font-bold text-slate-800 mb-4"><i class="fa-solid fa-building text-purple-600 mr-2"></i>Top 5 ลูกค้า B2B</h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr class="bg-slate-50 text-slate-600">
-                <th class="p-3 rounded-l-lg">อันดับ</th>
-                <th class="p-3">ชื่อลูกค้า</th>
-                <th class="p-3 text-right rounded-r-lg">ยอดซื้อรวม (บาท)</th>
-              </tr>
-            </thead>
-            <tbody id="topB2bTable" class="divide-y divide-gray-100">
-              <tr><td colspan="3" class="p-4 text-center text-gray-400">กรุณาอัปโหลดไฟล์ CSV</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+function calc(sel) {
+  const o = D.orders.filter(r => inM(r.date, sel));
+  const sum = f => o.filter(f).reduce((a, r) => a + num(r.amt), 0);
+  const total = o.reduce((a, r) => a + num(r.amt), 0);
+  return {
+    o, so: sum(r => r.type === 'SO'), fo: sum(r => r.type === 'FO'),
+    b2c: o.filter(r => r.seg === 'B2C').length, b2b: o.filter(r => r.seg === 'B2B').length,
+    aov: o.length ? total / o.length : 0
+  };
+}
 
-      <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-        <h3 class="text-base font-bold text-slate-800 mb-4"><i class="fa-solid fa-hand-holding-dollar text-rose-500 mr-2"></i>Top 5 ลูกค้าคงค้างชำระ</h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr class="bg-slate-50 text-slate-600">
-                <th class="p-3 rounded-l-lg">อันดับ</th>
-                <th class="p-3">ชื่อลูกค้า</th>
-                <th class="p-3 text-right rounded-r-lg">ยอดคงค้าง (บาท)</th>
-              </tr>
-            </thead>
-            <tbody id="outstandingTable" class="divide-y divide-gray-100">
-              <tr><td colspan="3" class="p-4 text-center text-gray-400">กรุณาอัปโหลดไฟล์ CSV</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+function delta(id, cur, prev, sel) {
+  const el = $(id);
+  if (sel === 'all') { el.className = 'd'; el.textContent = 'ทุกเดือนรวมกัน'; return; }
+  if (!prev) { el.className = 'd'; el.textContent = 'ไม่มีข้อมูลเดือนก่อน'; return; }
+  const p = (cur - prev) / prev * 100;
+  el.className = 'd ' + (p >= 0 ? 'up' : 'dn');
+  el.textContent = (p >= 0 ? '▲ ' : '▼ ') + Math.abs(p).toFixed(1) + '% จากเดือนก่อน';
+}
 
-    <!-- Pre-order & Best Sellers -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-        <h3 class="text-base font-bold text-slate-800 mb-4"><i class="fa-solid fa-box-archive text-amber-500 mr-2"></i>รุ่นที่มีรายการพรีออเดอร์</h3>
-        <div id="preorderContainer" class="flex flex-wrap gap-2">
-          <span class="text-sm text-gray-400">กรุณาอัปโหลดไฟล์ CSV</span>
-        </div>
-      </div>
+function table(id, heads, rows) {
+  $(id).innerHTML = '<tr>' + heads.map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
+    (rows.length ? rows.map(r => '<tr>' + r.map((c, i) => `<td class="${i ? 'r' : ''}">${esc(c)}</td>`).join('') + '</tr>').join('')
+                 : `<tr><td class="empty" colspan="${heads.length}">ไม่มีข้อมูลในช่วงนี้</td></tr>`);
+}
 
-      <div class="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
-        <h3 class="text-base font-bold text-slate-800 mb-4"><i class="fa-solid fa-fire text-orange-500 mr-2"></i>อันดับสินค้าขายดี (จำนวนชิ้น)</h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr class="bg-slate-50 text-slate-600">
-                <th class="p-3 rounded-l-lg">อันดับ</th>
-                <th class="p-3">รุ่น / รายการสินค้า</th>
-                <th class="p-3 text-right rounded-r-lg">จำนวนขาย</th>
-              </tr>
-            </thead>
-            <tbody id="bestSellersTable" class="divide-y divide-gray-100">
-              <tr><td colspan="3" class="p-4 text-center text-gray-400">กรุณาอัปโหลดไฟล์ CSV</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+function lineChart(pts) {
+  const W = 640, H = 240, p = { l:48, r:10, t:10, b:26 };
+  if (!pts.length) { $('line').innerHTML = '<p class="empty">ไม่มีข้อมูล</p>'; return; }
+  const mx = Math.max(...pts.map(q => q.v), 1), pw = Math.pow(10, Math.floor(Math.log10(mx))), max = Math.ceil(mx / pw) * pw;
+  const n = pts.length, x = i => p.l + (n > 1 ? i * (W - p.l - p.r) / (n - 1) : 0), y = v => H - p.b - v / max * (H - p.t - p.b);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="กราฟยอดขายรายวัน">`;
+  for (let g = 0; g <= 4; g++) { const v = max / 4 * g; s += `<line x1="${p.l}" x2="${W-p.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${p.l-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--mute)">${short(v)}</text>`; }
+  [...new Set([0, Math.floor(n/4), Math.floor(n/2), Math.floor(n*3/4), n-1])].forEach(i => s += `<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="11" fill="var(--mute)">${esc(pts[i].label)}</text>`);
+  const line = pts.map((q, i) => `${x(i)},${y(q.v)}`).join(' ');
+  s += `<polygon points="${x(0)},${y(0)} ${line} ${x(n-1)},${y(0)}" fill="var(--c1)" opacity=".12"/><polyline points="${line}" fill="none" stroke="var(--c1)" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
+  $('line').innerHTML = s;
+}
 
-  </div>
+function barChart(items) {
+  if (!items.length) { $('bars').innerHTML = '<p class="empty">ไม่มีข้อมูล</p>'; return; }
+  const tot = items.reduce((a, c) => a + c[1], 0), top = items[0][1] || 1, cols = ['--c1','--c2','--c3'];
+  let b = `<svg viewBox="0 0 300 ${items.length * 42 + 8}" role="img" aria-label="กราฟยอดขายตามช่องทาง">`;
+  items.forEach((c, i) => { const yy = 8 + i * 42, w = Math.max(c[1] / top * 140, 2);
+    b += `<text x="0" y="${yy+12}" font-size="12.5" fill="var(--ink)">${esc(c[0])}</text><rect x="0" y="${yy+18}" width="${w}" height="14" rx="3" fill="var(${cols[i % 3]})"/><text x="${w+8}" y="${yy+30}" font-size="12" fill="var(--mute)">${money(c[1])} (${Math.round(c[1]/tot*100)}%)</text>`; });
+  $('bars').innerHTML = b + '</svg>';
+}
 
-  <script>
-    let dailyChartInstance = null;
-    let channelChartInstance = null;
+function render() {
+  const sel = $('month').value, c = calc(sel), pv = sel === 'all' ? null : calc(prevKey(sel));
+  $('k-so').textContent = money(c.so);  delta('d-so',  c.so,  pv && pv.so,  sel);
+  $('k-fo').textContent = money(c.fo);  delta('d-fo',  c.fo,  pv && pv.fo,  sel);
+  $('k-b2c').textContent = fmt(c.b2c);  delta('d-b2c', c.b2c, pv && pv.b2c, sel);
+  $('k-b2b').textContent = fmt(c.b2b);  delta('d-b2b', c.b2b, pv && pv.b2b, sel);
+  $('k-aov').textContent = '฿' + fmt(c.aov); delta('d-aov', c.aov, pv && pv.aov, sel);
 
-    function formatNumber(num) {
-      return (num || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
+  // กราฟรายวัน
+  const byDay = group(c.o, r => String(r.date).slice(0,10), () => ({ v:0 }), (a, r) => a.v += num(r.amt));
+  let pts;
+  if (sel === 'all') pts = [...byDay.keys()].sort().map(d => ({ label: dayName(d), v: byDay.get(d).v }));
+  else { const y = +sel.slice(0,4), m = +sel.slice(5,7), n = new Date(y, m, 0).getDate();
+    pts = Array.from({ length: n }, (_, i) => { const d = `${sel}-${String(i+1).padStart(2,'0')}`; return { label: dayName(d), v: byDay.has(d) ? byDay.get(d).v : 0 }; }); }
+  lineChart(pts);
 
-    function handleFileUpload(event) {
-      const file = event.target.files[0];
-      if (!file) return;
+  // ช่องทางขาย
+  barChart([...group(c.o, r => r.ch || 'ไม่ระบุ', () => ({ v:0 }), (a, r) => a.v += num(r.amt))].map(([k, a]) => [k, a.v]).sort((a, b) => b[1] - a[1]).slice(0, 6));
 
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-          renderDashboard(results.data);
-        }
-      });
-    }
+  // Top 5 ลูกค้า B2B
+  table('t-b2b', ['ลูกค้า', 'ออเดอร์', 'ยอดซื้อ (฿)'],
+    [...group(c.o.filter(r => r.seg === 'B2B'), r => r.cust, () => ({ n:0, v:0 }), (a, r) => { a.n++; a.v += num(r.amt); })]
+      .sort((a, b) => b[1].v - a[1].v).slice(0, 5).map(([k, a]) => [k, fmt(a.n), fmt(a.v)]));
 
-    function renderDashboard(data) {
-      if (!data || data.length === 0) return;
+  // Top 5 ยอดคงค้าง
+  table('t-ar', ['ลูกค้า', 'เกินกำหนด (วัน)', 'ค้างชำระ (฿)'],
+    [...group(D.receivables.filter(r => inM(r.date, sel)), r => r.cust, () => ({ d:0, v:0 }), (a, r) => { a.d = Math.max(a.d, num(r.days)); a.v += num(r.amt); })]
+      .sort((a, b) => b[1].v - a[1].v).slice(0, 5).map(([k, a]) => [k, fmt(a.d), fmt(a.v)]));
 
-      let totalSalesS = 0, sOrders = new Set();
-      let totalRepairFO = 0, foOrders = new Set();
-      let b2cSales = 0, b2cOrders = new Set();
-      let b2bSales = 0, b2bOrders = new Set();
+  // Top 5 พรีออเดอร์
+  table('t-pre', ['สินค้า', 'จำนวน', 'กำหนดส่ง'],
+    [...group(D.preorders.filter(r => inM(r.date, sel)), r => r.prod, () => ({ q:0, due:'' }), (a, r) => { a.q += num(r.qty); if (r.due && (!a.due || r.due < a.due)) a.due = r.due; })]
+      .sort((a, b) => b[1].q - a[1].q).slice(0, 5).map(([k, a]) => [k, fmt(a.q), a.due ? dayName(a.due) : '-']));
 
-      let dailySales = {};
-      let channelSales = {};
-      let b2bCustomers = {};
-      let outstandingCustomers = {};
-      let preOrdersSet = new Set();
-      let bestSellers = {};
+  // Top 5 สินค้าขายดี
+  table('t-top', ['สินค้า', 'จำนวน', 'ยอดขาย (฿)'],
+    [...group(c.o, r => r.prod, () => ({ q:0, v:0 }), (a, r) => { a.q += num(r.qty); a.v += num(r.amt); })]
+      .sort((a, b) => b[1].v - a[1].v).slice(0, 5).map(([k, a]) => [k, fmt(a.q), fmt(a.v)]));
 
-      data.forEach(row => {
-        let orderId = String(row['เลขที่คำสั่งซื้อ'] || '').trim();
-        let channel = String(row['ช่องทาง'] || '').trim();
-        let netAmount = parseFloat(String(row['ยอดสุทธิ'] || '0').replace(/,/g, '')) || 0;
-        let outstanding = parseFloat(String(row['ยอดคงค้าง'] || '0').replace(/,/g, '')) || 0;
-        let qty = parseFloat(String(row['จำนวนขาย'] || '0').replace(/,/g, '')) || 0;
-        let dateStr = String(row['วันที่ซื้อ'] || '').trim();
-        let customer = String(row['ชื่อลูกค้า'] || '').trim();
-        let model = String(row['รุ่น'] || '').trim();
-        let preOrder = String(row['พรีออเดอร์'] || '').trim();
+  $('sub').textContent = sel === 'all' ? 'ทุกเดือน' : monthName(sel);
+}
 
-        if (orderId.toUpperCase().startsWith('S')) {
-          totalSalesS += netAmount;
-          if (orderId) sOrders.add(orderId);
-        }
-
-        if (orderId.toUpperCase().startsWith('FO')) {
-          totalRepairFO += netAmount;
-          if (orderId) foOrders.add(orderId);
-        }
-
-        let isB2B = /B2B/i.test(channel);
-        if (isB2B) {
-          b2bSales += netAmount;
-          if (orderId) b2bOrders.add(orderId);
-          if (customer && customer !== 'undefined') b2bCustomers[customer] = (b2bCustomers[customer] || 0) + netAmount;
-        } else {
-          b2cSales += netAmount;
-          if (orderId) b2cOrders.add(orderId);
-        }
-
-        if (dateStr && netAmount > 0) dailySales[dateStr] = (dailySales[dateStr] || 0) + netAmount;
-        if (channel && channel !== 'undefined' && netAmount > 0) channelSales[channel] = (channelSales[channel] || 0) + netAmount;
-        if (outstanding > 0 && customer && customer !== 'undefined') outstandingCustomers[customer] = (outstandingCustomers[customer] || 0) + outstanding;
-        if (preOrder && preOrder !== 'undefined' && model) preOrdersSet.add(model);
-        if (model && model !== 'undefined' && qty > 0) bestSellers[model] = (bestSellers[model] || 0) + qty;
-      });
-
-      document.getElementById('card-total-sales').innerText = '฿' + formatNumber(totalSalesS);
-      document.getElementById('card-total-orders-s').innerText = sOrders.size + ' คำสั่งซื้อ';
-
-      document.getElementById('card-total-repair').innerText = '฿' + formatNumber(totalRepairFO);
-      document.getElementById('card-total-orders-fo').innerText = foOrders.size + ' คำสั่งซื้อ';
-
-      document.getElementById('card-b2c-sales').innerText = '฿' + formatNumber(b2cSales);
-      document.getElementById('card-b2c-orders').innerText = b2cOrders.size + ' คำสั่งซื้อ';
-
-      document.getElementById('card-b2b-sales').innerText = '฿' + formatNumber(b2bSales);
-      document.getElementById('card-b2b-orders').innerText = b2bOrders.size + ' คำสั่งซื้อ';
-
-      let aov = sOrders.size > 0 ? (totalSalesS / sOrders.size) : 0;
-      document.getElementById('card-aov').innerText = '฿' + formatNumber(aov);
-
-      // Daily Chart
-      let sortedDates = Object.keys(dailySales).sort();
-      if (dailyChartInstance) dailyChartInstance.destroy();
-      dailyChartInstance = new Chart(document.getElementById('dailySalesChart'), {
-        type: 'line',
-        data: {
-          labels: sortedDates,
-          datasets: [{
-            label: 'ยอดขายสุทธิ (บาท)',
-            data: sortedDates.map(d => dailySales[d]),
-            borderColor: '#6366f1',
-            backgroundColor: 'rgba(99, 102, 241, 0.1)',
-            fill: true,
-            tension: 0.3
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
-
-      // Channel Chart
-      let channelLabels = Object.keys(channelSales);
-      if (channelChartInstance) channelChartInstance.destroy();
-      channelChartInstance = new Chart(document.getElementById('channelChart'), {
-        type: 'doughnut',
-        data: {
-          labels: channelLabels,
-          datasets: [{
-            data: channelLabels.map(c => channelSales[c]),
-            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#64748b']
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-      });
-
-      // Tables
-      let topB2b = Object.entries(b2bCustomers).sort((a,b) => b[1] - a[1]).slice(0, 5);
-      document.getElementById('topB2bTable').innerHTML = topB2b.length ? topB2b.map((item, idx) => `
-        <tr class="hover:bg-slate-50">
-          <td class="p-3 font-semibold text-gray-500">${idx+1}</td>
-          <td class="p-3 font-medium text-slate-700">${item[0]}</td>
-          <td class="p-3 text-right font-bold text-slate-800">฿${formatNumber(item[1])}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="3" class="p-4 text-center text-gray-400">ไม่มีข้อมูล</td></tr>';
-
-      let topOutstanding = Object.entries(outstandingCustomers).sort((a,b) => b[1] - a[1]).slice(0, 5);
-      document.getElementById('outstandingTable').innerHTML = topOutstanding.length ? topOutstanding.map((item, idx) => `
-        <tr class="hover:bg-slate-50">
-          <td class="p-3 font-semibold text-gray-500">${idx+1}</td>
-          <td class="p-3 font-medium text-slate-700">${item[0]}</td>
-          <td class="p-3 text-right font-bold text-rose-600">฿${formatNumber(item[1])}</td>
-        </tr>
-      `).join('') : '<tr><td colspan="3" class="p-4 text-center text-gray-400">ไม่มีข้อมูลค้างชำระ</td></tr>';
-
-      let preArray = Array.from(preOrdersSet);
-      document.getElementById('preorderContainer').innerHTML = preArray.length ? preArray.map(m => `
-        <span class="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-sm font-semibold flex items-center gap-1.5">
-          <i class="fa-solid fa-clock-rotate-left text-xs"></i> ${m}
-        </span>
-      `).join('') : '<span class="text-sm text-gray-400">ไม่มีรายการพรีออเดอร์</span>';
-
-      let topSellers = Object.entries(bestSellers).sort((a,b) => b[1] - a[1]).slice(0, 5);
-      document.getElementById('bestSellersTable').innerHTML = topSellers.length ? topSellers.map((item, idx) => `
-        <tr class="hover:bg-slate-50">
-          <td class="p-3 font-semibold text-gray-500">${idx+1}</td>
-          <td class="p-3 font-medium text-slate-700">${item[0]}</td>
-          <td class="p-3 text-right font-bold text-indigo-600">${item[1].toLocaleString()} ชิ้น</td>
-        </tr>
-      `).join('') : '<tr><td colspan="3" class="p-4 text-center text-gray-400">ไม่มีข้อมูล</td></tr>';
-    }
-  </script>
+async function init() {
+  try {
+    const src = CFG.appsScriptUrl || CFG.url;
+    const res = await fetch(src + (src.includes('?') ? '&' : '?') + 't=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const j = await res.json();
+    D = { orders: mapRows(j.orders, CFG.orders), receivables: mapRows(j.receivables, CFG.receivables), preorders: mapRows(j.preorders, CFG.preorders) };
+  } catch (e) {
+    $('msg').style.display = 'block';
+    $('msg').textContent = 'โหลดข้อมูลไม่สำเร็จ (' + e.message + ') — ถ้าเปิดไฟล์โดยตรงในเครื่อง ให้เปิดผ่าน GitHub Pages หรือ local server แทน';
+    $('sub').textContent = 'ไม่มีข้อมูล';
+  }
+  const months = [...new Set(D.orders.map(r => String(r.date).slice(0,7)))].sort().reverse();
+  $('month').innerHTML = '<option value="all">ทุกเดือน</option>' + months.map(m => `<option value="${m}">${monthName(m)}</option>`).join('');
+  if (months.length) $('month').value = months[0];
+  $('month').addEventListener('change', render);
+  render();
+}
+init();
+</script>
 </body>
 </html>
