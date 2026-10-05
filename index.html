@@ -57,7 +57,6 @@ svg{width:100%;height:auto;display:block}
 
  <div class="grid four">
   <div class="card"><h2>5 อันดับลูกค้า B2B</h2><div class="scroll"><table id="t-b2b"></table></div></div>
-  <div class="card"><h2>5 อันดับลูกค้ายอดคงค้าง</h2><div class="scroll"><table id="t-ar"></table></div></div>
   <div class="card"><h2>5 อันดับสินค้าพรีออเดอร์</h2><div class="scroll"><table id="t-pre"></table></div></div>
   <div class="card"><h2>5 อันดับสินค้าขายดี</h2><div class="scroll"><table id="t-top"></table></div></div>
  </div>
@@ -165,11 +164,6 @@ function render() {
     [...group(c.o.filter(r => r.seg === 'B2B'), r => r.cust, () => ({ n:0, v:0 }), (a, r) => { a.n++; a.v += num(r.amt); })]
       .sort((a, b) => b[1].v - a[1].v).slice(0, 5).map(([k, a]) => [k, fmt(a.n), fmt(a.v)]));
 
-  // Top 5 ยอดคงค้าง
-  table('t-ar', ['ลูกค้า', 'เกินกำหนด (วัน)', 'ค้างชำระ (฿)'],
-    [...group(D.receivables.filter(r => inM(r.date, sel)), r => r.cust, () => ({ d:0, v:0 }), (a, r) => { a.d = Math.max(a.d, num(r.days)); a.v += num(r.amt); })]
-      .sort((a, b) => b[1].v - a[1].v).slice(0, 5).map(([k, a]) => [k, fmt(a.d), fmt(a.v)]));
-
   // Top 5 พรีออเดอร์
   table('t-pre', ['สินค้า', 'จำนวน', 'กำหนดส่ง'],
     [...group(D.preorders.filter(r => inM(r.date, sel)), r => r.prod, () => ({ q:0, due:'' }), (a, r) => { a.q += num(r.qty); if (r.due && (!a.due || r.due < a.due)) a.due = r.due; })]
@@ -189,6 +183,10 @@ async function init() {
     const res = await fetch(src + (src.includes('?') ? '&' : '?') + 't=' + Date.now());
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const j = await res.json();
+    if (!j.orders || !j.orders.length) {
+      $('msg').style.display = 'block';
+      $('msg').textContent = 'เชื่อมต่อได้ แต่ไม่พบแถวข้อมูลในชีต orders — ตรวจชื่อชีตและหัวคอลัมน์ใน Google Sheet (ข้อมูลที่ได้รับ: ' + JSON.stringify(Object.fromEntries(Object.entries(j).map(([k, v]) => [k, Array.isArray(v) ? v.length + ' แถว' : v]))) + ')';
+    }
     D = { orders: mapRows(j.orders, CFG.orders), receivables: mapRows(j.receivables, CFG.receivables), preorders: mapRows(j.preorders, CFG.preorders) };
   } catch (e) {
     $('msg').style.display = 'block';
