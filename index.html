@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sales Dashboard - กันยายน 2569</title>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: 'Sarabun', sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+    h1 { text-align: center; margin-bottom: 20px; color: #1e3a8a; }
+    .kpi-container { display: flex; gap: 15px; justify-content: space-between; margin-bottom: 25px; flex-wrap: wrap; }
+    .kpi-card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); flex: 1; min-width: 200px; text-align: center; }
+    .kpi-title { font-size: 14px; color: #6b7280; }
+    .kpi-value { font-size: 24px; font-weight: bold; color: #2563eb; margin-top: 5px; }
+    .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 20px; }
+    .chart-card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .chart-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #374151; }
+  </style>
+</head>
+<body>
+
+  <h1>📊 Sales Dashboard (เดือนกันยายน 2569)</h1>
+
+  <!-- Summary Cards -->
+  <div class="kpi-container">
+    <div class="kpi-card"><div class="kpi-title">ยอดขายรวม</div><div class="kpi-value" id="totalRevenue">-</div></div>
+    <div class="kpi-card"><div class="kpi-title">จำนวนคำสั่งซื้อ</div><div class="kpi-value" id="totalOrders">-</div></div>
+    <div class="kpi-card"><div class="kpi-title">จำนวนสินค้าที่ขายได้</div><div class="kpi-value" id="totalItemsSold">-</div></div>
+    <div class="kpi-card"><div class="kpi-title">ยอดขายเฉลี่ยต่อออเดอร์</div><div class="kpi-value" id="avgOrderValue">-</div></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">📈 ยอดขายรายวัน (Daily Revenue Trend)</div>
+      <canvas id="dailyTrendChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">🛒 ยอดขายตามช่องทาง (Sales Channel)</div>
+      <canvas id="channelChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">🏆 10 อันดับรุ่นสินค้าขายดี</div>
+      <canvas id="modelChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">📍 10 อันดับจังหวัดมียอดขายสูงสุด</div>
+      <canvas id="provinceChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    // 🔗 วาง URL ที่ได้จาก Google Apps Script Web App ตรงนี้
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzFguu4Ef7EBmVEFVWTMLp1mSERNtgiwSvGi9apDvGFAz4H4Cx6Q165wQXuLUcIALH2/exec";
+
+    async function loadDashboard() {
+      try {
+        const res = await fetch(APPS_SCRIPT_URL);
+        const data = await res.json();
+
+        // Update KPIs
+        document.getElementById('totalRevenue').innerText = '฿' + data.summary.totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2});
+        document.getElementById('totalOrders').innerText = data.summary.totalOrders.toLocaleString() + ' ออเดอร์';
+        document.getElementById('totalItemsSold').innerText = data.summary.totalItemsSold.toLocaleString() + ' ชิ้น';
+        document.getElementById('avgOrderValue').innerText = '฿' + data.summary.avgOrderValue.toLocaleString(undefined, {minimumFractionDigits: 2});
+
+        // 1. Daily Trend Chart
+        new Chart(document.getElementById('dailyTrendChart'), {
+          type: 'line',
+          data: {
+            labels: data.dailyTrend.map(d => `วันที่ ${d.day}`),
+            datasets: [{ label: 'ยอดขาย (บาท)', data: data.dailyTrend.map(d => d.value), borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', fill: true }]
+          }
+        });
+
+        // 2. Channel Chart
+        new Chart(document.getElementById('channelChart'), {
+          type: 'bar',
+          data: {
+            labels: data.byChannel.map(c => c.name),
+            datasets: [{ label: 'ยอดขาย (บาท)', data: data.byChannel.map(c => c.value), backgroundColor: '#3b82f6' }]
+          },
+          options: { indexAxis: 'y' }
+        });
+
+        // 3. Model Chart
+        new Chart(document.getElementById('modelChart'), {
+          type: 'bar',
+          data: {
+            labels: data.byModel.map(m => m.name),
+            datasets: [{ label: 'ยอดขาย (บาท)', data: data.byModel.map(m => m.value), backgroundColor: '#10b981' }]
+          },
+          options: { indexAxis: 'y' }
+        });
+
+        // 4. Province Chart
+        new Chart(document.getElementById('provinceChart'), {
+          type: 'bar',
+          data: {
+            labels: data.byProvince.map(p => p.name),
+            datasets: [{ label: 'ยอดขาย (บาท)', data: data.byProvince.map(p => p.value), backgroundColor: '#f59e0b' }]
+          }
+        });
+
+      } catch (err) {
+        console.error("Failed to fetch dashboard data:", err);
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>
