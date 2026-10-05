@@ -65,7 +65,7 @@ svg{width:100%;height:auto;display:block}
 <script>
 /* ===== ตั้งค่า: แก้ชื่อไฟล์/ชื่อคอลัมน์ให้ตรงกับไฟล์ที่ export จากแอปได้ที่นี่ ===== */
 const CFG = {
-  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbzTKgve92OT2JMx9jv2YszGVbMAoXZszOW_mQbUfMExSqpZl6rq5gxBluhEESJ2-Fl6/exec',   // วางลิงก์ Web App (ลงท้ายด้วย /exec) จาก Google Apps Script ตรงนี้
+  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbwQp18kWTL5hlJQFzoFznMylmPP2jpuhscmnilyU4F2GTQ-76T9syKtpSg21tCAVRzC/exec',   // วางลิงก์ Web App (ลงท้ายด้วย /exec) จาก Google Apps Script ตรงนี้
   url: 'data.json',     // ใช้ไฟล์นี้แทน ถ้าเว้น appsScriptUrl ว่างไว้
   orders:      { date:'date', type:'doc_type', seg:'segment', ch:'channel', cust:'customer', prod:'product', qty:'qty', amt:'amount' },
   receivables: { date:'invoice_date', cust:'customer', days:'overdue_days', amt:'amount' },
@@ -185,7 +185,7 @@ async function init() {
     const j = await res.json();
     if (!j.orders || !j.orders.length) {
       $('msg').style.display = 'block';
-      $('msg').textContent = 'เชื่อมต่อได้ แต่ไม่พบแถวข้อมูลในชีต orders — ตรวจชื่อชีตและหัวคอลัมน์ใน Google Sheet (ข้อมูลที่ได้รับ: ' + JSON.stringify(Object.fromEntries(Object.entries(j).map(([k, v]) => [k, Array.isArray(v) ? v.length + ' แถว' : v]))) + ')';
+      $('msg').textContent = 'เชื่อมต่อได้ แต่ไม่พบแถวข้อมูลในชีต orders — ตรวจชื่อชีตและหัวคอลัมน์ใน Google Sheet (ข้อมูลที่ได้รับ: ' + JSON.stringify({ orders: (j.orders || []).length + ' แถว', preorders: (j.preorders || []).length + ' แถว' }) + ' · ชีตที่พบใน Sheet: ' + ((j._sheetNames || []).join(', ') || 'ไม่พบ') + ')';
     }
     D = { orders: mapRows(j.orders, CFG.orders), receivables: mapRows(j.receivables, CFG.receivables), preorders: mapRows(j.preorders, CFG.preorders) };
   } catch (e) {
