@@ -33,15 +33,26 @@ tr:last-child td{border-bottom:0}.empty{color:var(--mute);text-align:center}
 svg{width:100%;height:auto;display:block}
 .lg{display:flex;gap:14px;font-size:12.5px;margin-top:8px;color:var(--mute)}.lg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
 #msg{display:none;background:var(--card);border:1px solid var(--dn);color:var(--dn);padding:10px 12px;border-radius:8px;margin-bottom:12px}
+[hidden]{display:none!important}
+.tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{font:inherit;border:0;background:none;color:var(--mute);padding:8px 14px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tabs button.on{color:var(--ink);font-weight:700;border-color:var(--c1)}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.bar input{flex:1;min-width:220px;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.kpis3{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:12px}
+.half{grid-template-columns:1fr 1fr;margin-bottom:12px}
+@media(max-width:760px){.half{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="wrap">
  <div class="head">
   <div><h1>แดชบอร์ดยอดขาย</h1><p class="sub" id="sub">กำลังโหลดข้อมูล…</p></div>
-  <label>เดือน <select id="month" aria-label="กรองตามเดือน"></select></label>
+  <label id="monthWrap">เดือน <select id="month" aria-label="กรองตามเดือน"></select></label>
  </div>
+ <nav class="tabs" id="tabs"><button data-t="ov" class="on">ภาพรวม</button><button data-t="prod">สินค้ารายตัว</button><button data-t="ch">ช่องทางขาย</button></nav>
  <div id="msg"></div>
+ <section id="v-ov">
 
  <div class="grid kpis">
   <div class="card kpi" style="--a:var(--c1)"><div class="l">ยอดขายสุทธิ SO</div><div class="v" id="k-so">-</div><div class="d" id="d-so"></div></div>
@@ -65,6 +76,24 @@ svg{width:100%;height:auto;display:block}
   <div class="card"><h2>5 อันดับจังหวัดที่ขายดี</h2><div class="scroll"><table id="t-prov"></table></div></div>
   <div class="card"><h2>ยอดสุทธิตามช่องทางการชำระ</h2><div class="scroll"><table id="t-pay"></table></div></div>
  </div>
+ </section>
+
+ <section id="v-prod" hidden>
+  <div class="bar"><input id="prodSel" list="prods" placeholder="🔍 พิมพ์ค้นหารุ่นสินค้า (เว้นว่าง = ทุกสินค้า)" autocomplete="off"><datalist id="prods"></datalist><span class="sub" id="prodInfo"></span></div>
+  <div class="grid kpis3" id="p-kpi"></div>
+  <div class="grid half">
+   <div class="card"><h2>จำนวนชิ้นที่ขาย รายเดือน (ทั้งปี)</h2><div id="p-month"></div></div>
+   <div class="card"><h2>จำนวนชิ้นที่ขาย ตามจังหวัด (Top 10)</h2><div id="p-prov"></div></div>
+  </div>
+ </section>
+
+ <section id="v-ch" hidden>
+  <div class="bar"><select id="chSel" aria-label="เลือกช่องทาง"></select></div>
+  <div class="grid kpis3" id="c-kpi"></div>
+  <div class="card" style="margin-bottom:12px"><h2>ยอดขาย (บาท) และจำนวนชิ้น รายเดือน (ทั้งปี)</h2><div id="c-month"></div>
+   <div class="lg"><span><i style="background:var(--c1)"></i>ยอดสุทธิ (บาท) แกนซ้าย</span><span><i style="background:var(--c2)"></i>จำนวนชิ้น แกนขวา</span></div></div>
+  <div class="card"><h2>จังหวัดที่ซื้อบ่อย (เรียงตามจำนวนออเดอร์) แสดงยอดสุทธิ</h2><div id="c-prov"></div></div>
+ </section>
 </div>
 
 <script>
@@ -188,6 +217,84 @@ function render() {
   $('sub').textContent = sel === 'all' ? 'ทุกเดือน' : monthName(sel);
 }
 
+/* ===== แท็บสินค้า / ช่องทาง ===== */
+const monthsList = () => {
+  const all = [...new Set(ROWS.map(r => r.date.slice(0,7)).filter(Boolean))].sort();
+  if (!all.length) return [];
+  const y = all[all.length - 1].slice(0,4);   // ปีล่าสุดที่มีในข้อมูล แสดง ม.ค.–ธ.ค.
+  return Array.from({ length: 12 }, (_, i) => y + '-' + String(i + 1).padStart(2, '0'));
+};
+const mShort = k => new Date(+k.slice(0,4), +k.slice(5,7)-1, 1).toLocaleDateString('th-TH', { month:'short', year:'2-digit' });
+function byMonth(rows, ms) {
+  const g = group(rows, r => r.date.slice(0,7), () => ({ q:0, v:0 }), (a, r) => { a.q += r.qty; a.v += r.net; });
+  const has = new Set(ROWS.map(r => r.date.slice(0,7)));   // เดือนที่มีข้อมูลในชีต (ไม่นับเดือนที่ยังไม่มีข้อมูล)
+  return ms.map(k => ({ label: mShort(k), has: has.has(k), q: (g.get(k) || { q:0 }).q, v: (g.get(k) || { v:0 }).v }));
+}
+function kpis3(id, rows) {
+  const q = rows.reduce((a, r) => a + r.qty, 0), v = rows.reduce((a, r) => a + r.net, 0), o = new Set(rows.map(r => r.order)).size;
+  $(id).innerHTML = [['จำนวนชิ้นที่ขาย', fmt(q), '--c1'], ['ยอดสุทธิ', money(v), '--c3'], ['จำนวนออเดอร์', fmt(o), '--c2']]
+    .map(([l, x, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${x}</div></div>`).join('');
+}
+function combo(id, pts, hasLine, fa) {
+  const ok = pts.filter(q => q.a !== null);
+  if (!ok.length) { $(id).innerHTML = '<p class="empty">ไม่มีข้อมูล</p>'; return; }
+  const W = 640, H = 260, p = { l:48, r: hasLine ? 48 : 14, t:22, b:28 };
+  const nice = m => { const pw = Math.pow(10, Math.floor(Math.log10(Math.max(m, 1)))); return Math.ceil(Math.max(m, 1) / pw) * pw; };
+  const ma = nice(Math.max(...ok.map(q => q.a))), mb = nice(Math.max(...ok.map(q => q.b || 0)));
+  const n = pts.length, x = i => p.l + (i + .5) * (W - p.l - p.r) / n, ya = v => H - p.b - v / ma * (H - p.t - p.b), yb = v => H - p.b - v / mb * (H - p.t - p.b);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img">`;
+  for (let g = 0; g <= 4; g++) {
+    s += `<line x1="${p.l}" x2="${W-p.r}" y1="${ya(ma/4*g)}" y2="${ya(ma/4*g)}" stroke="var(--line)"/><text x="${p.l-6}" y="${ya(ma/4*g)+4}" text-anchor="end" font-size="11" fill="var(--mute)">${short(ma/4*g)}</text>`;
+    if (hasLine) s += `<text x="${W-p.r+6}" y="${yb(mb/4*g)+4}" font-size="11" fill="var(--c2)">${short(mb/4*g)}</text>`;
+  }
+  pts.forEach((q, i) => s += `<text x="${x(i)}" y="${H-10}" text-anchor="middle" font-size="11" fill="var(--mute)" opacity="${q.a === null ? .45 : 1}">${esc(q.label)}</text>`);
+  const path = (k, y) => { let d = '', pen = false; pts.forEach((q, i) => { if (q[k] === null || q[k] === undefined) { pen = false; return; } d += (pen ? 'L' : 'M') + x(i) + ' ' + y(q[k]) + ' '; pen = true; }); return d; };
+  if (hasLine) s += `<path d="${path('b', yb)}" fill="none" stroke="var(--c2)" stroke-width="2.5" stroke-linejoin="round"/>`;
+  s += `<path d="${path('a', ya)}" fill="none" stroke="var(--c1)" stroke-width="2.5" stroke-linejoin="round"/>`;
+  pts.forEach((q, i) => {
+    if (hasLine && q.b !== null && q.b !== undefined) s += `<circle cx="${x(i)}" cy="${yb(q.b)}" r="3.5" fill="var(--c2)"/>`;
+    if (q.a !== null) s += `<circle cx="${x(i)}" cy="${ya(q.a)}" r="4" fill="var(--c1)"/><text x="${x(i)}" y="${ya(q.a)-9}" text-anchor="middle" font-size="10.5" fill="var(--ink)">${short(q.a)}</text>`;
+  });
+  const hi = ok.reduce((a, b) => b.a > a.a ? b : a), lo = ok.reduce((a, b) => b.a < a.a ? b : a);
+  $(id).innerHTML = s + '</svg>' + (ok.length > 1
+    ? `<p class="sub">สูงสุด ${esc(hi.label)} (${fa(hi.a)}) · ต่ำสุด ${esc(lo.label)} (${fa(lo.a)})</p>`
+    : `<p class="sub">มีข้อมูล 1 เดือน (${esc(ok[0].label)})</p>`);
+}
+function hbar(id, items, fv) {
+  if (!items.length) { $(id).innerHTML = '<p class="empty">ไม่มีข้อมูล</p>'; return; }
+  const top = Math.max(...items.map(c => c[1]), 1);
+  let b = `<svg viewBox="0 0 300 ${items.length * 42 + 8}" role="img">`;
+  items.forEach((c, i) => { const yy = 8 + i * 42, w = Math.max(c[1] / top * 120, 2);
+    b += `<text x="0" y="${yy+12}" font-size="12.5" fill="var(--ink)">${esc(c[0])}</text><rect x="0" y="${yy+18}" width="${w}" height="14" rx="3" fill="var(--c1)"/><text x="${w+8}" y="${yy+30}" font-size="12" fill="var(--mute)">${fv(c[1])}${c[2] ? ' · ' + esc(c[2]) : ''}</text>`; });
+  $(id).innerHTML = b + '</svg>';
+}
+function renderProd() {
+  const ms = monthsList(), q = norm($('prodSel').value), inMs = ROWS.filter(r => ms.includes(r.date.slice(0,7)));
+  const rows = q ? inMs.filter(r => norm(r.prod).includes(q)) : inMs, found = new Set(rows.map(r => r.prod)).size;
+  $('prodInfo').textContent = q ? `พบ ${found} รุ่นที่ตรงกับคำค้น` : `ทุกสินค้า (${found} รุ่น)`;
+  kpis3('p-kpi', rows);
+  combo('p-month', byMonth(rows, ms).map(x => ({ label: x.label, a: x.has ? x.q : null })), false, v => fmt(v) + ' ชิ้น');
+  hbar('p-prov', [...group(rows, r => r.prov || 'ไม่ระบุ', () => ({ q:0 }), (a, r) => a.q += r.qty)]
+    .sort((a, b) => b[1].q - a[1].q).slice(0, 10).map(([k, a]) => [k, a.q]), v => fmt(v) + ' ชิ้น');
+}
+function renderCh() {
+  const ms = monthsList(), c = $('chSel').value, inMs = ROWS.filter(r => ms.includes(r.date.slice(0,7)));
+  const rows = c === 'all' ? inMs : inMs.filter(r => r.ch === c);
+  kpis3('c-kpi', rows);
+  combo('c-month', byMonth(rows, ms).map(x => ({ label: x.label, a: x.has ? x.v : null, b: x.has ? x.q : null })), true, money);
+  hbar('c-prov', [...group(rows, r => r.prov || 'ไม่ระบุ', () => ({ o:new Set(), v:0 }), (a, r) => { a.o.add(r.order); a.v += r.net; })]
+    .sort((a, b) => b[1].o.size - a[1].o.size).slice(0, 10).map(([k, a]) => [k, a.v, fmt(a.o.size) + ' ออเดอร์']), money);
+}
+function showTab(t) {
+  ['ov', 'prod', 'ch'].forEach(k => $('v-' + k).hidden = k !== t);
+  $('monthWrap').style.display = t === 'ov' ? '' : 'none';
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  if (t === 'ov') render(); else {
+    const ms = monthsList(); $('sub').textContent = ms.length ? 'ทั้งปี ' + (+ms[0].slice(0,4) + 543) : '';
+    t === 'prod' ? renderProd() : renderCh();
+  }
+}
+
 function warn(t) { $('msg').style.display = 'block'; $('msg').textContent = t; }
 
 async function init() {
@@ -213,6 +320,11 @@ async function init() {
   $('month').innerHTML = '<option value="all">ทุกเดือน</option>' + months.map(m => `<option value="${m}">${monthName(m)}</option>`).join('');
   if (months.length) $('month').value = months[0];
   $('month').addEventListener('change', render);
+  $('prods').innerHTML = [...group(ROWS, r => r.prod, () => ({ q:0 }), (a, r) => a.q += r.qty)].filter(([k]) => k).sort((a, b) => b[1].q - a[1].q).map(([k]) => `<option value="${esc(k)}">`).join('');
+  $('chSel').innerHTML = '<option value="all">ทุกช่องทาง</option>' + [...group(ROWS, r => r.ch, () => ({ v:0 }), (a, r) => a.v += r.net)].filter(([k]) => k).sort((a, b) => b[1].v - a[1].v).map(([k]) => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
+  $('prodSel').addEventListener('input', renderProd);
+  $('chSel').addEventListener('change', renderCh);
+  document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.t)));
   render();
 }
 init();
