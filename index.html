@@ -62,6 +62,7 @@ svg{width:100%;height:auto;display:block}
   <div class="card kpi" style="--a:var(--c3)"><div class="l">AOV ยอดขายเฉลี่ยต่อออเดอร์</div><div class="v" id="k-aov">-</div><div class="d" id="d-aov"></div></div>
  </div>
 
+ <p class="sub" id="recon" style="margin:0 0 12px"></p>
  <div class="grid two">
   <div class="card"><h2>ยอดขายรายวัน: ราคา เทียบ ยอดสุทธิ (บาท)</h2><div id="line"></div>
    <div class="lg"><span><i style="background:var(--c2)"></i>ราคา</span><span><i style="background:var(--c1)"></i>ยอดสุทธิ</span></div></div>
@@ -188,6 +189,14 @@ function render() {
   $('k-b2c').textContent = fmt(c.b2cN);  delta('d-b2c', c.b2cN, pv && pv.b2cN, sel, 'ยอดสุทธิ ' + money(c.b2cV));
   $('k-b2b').textContent = fmt(c.b2bN);  delta('d-b2b', c.b2bN, pv && pv.b2bN, sel, 'ยอดสุทธิ ' + money(c.b2bV));
   $('k-aov').textContent = '฿' + fmt(c.aov); delta('d-aov', c.aov, pv && pv.aov, sel);
+
+  // ตรวจความตรงกัน: SO + FO ต้องเท่ากับยอดสุทธิรวม ถ้าไม่เท่า แสดงว่ามีเลขที่คำสั่งซื้อรหัสอื่น
+  const tot = c.o.reduce((a, r) => a + r.net, 0), oth = c.o.filter(r => !r.so && !r.fo), othV = oth.reduce((a, r) => a + r.net, 0);
+  const pre = [...group(oth, r => (r.order || '(ว่าง)').toUpperCase().slice(0, 3), () => ({ v:0, o:new Set() }), (a, r) => { a.v += r.net; a.o.add(r.order); })]
+    .sort((a, b) => Math.abs(b[1].v) - Math.abs(a[1].v)).slice(0, 4).map(([k, a]) => `${k}… ${money(a.v)}`).join(', ');
+  $('recon').textContent = Math.abs(othV) < 1
+    ? `ยอดสุทธิรวม ${money(tot)} = SO + FO (ตรงกัน)`
+    : `ยอดสุทธิรวมทุกรายการ ${money(tot)} = SO ${money(c.so)} + FO ${money(c.fo)} + อื่น ๆ ${money(othV)} (${fmt(new Set(oth.map(r => r.order)).size)} ออเดอร์ที่เลขที่ไม่ขึ้นต้นด้วย S หรือ FO — รหัสที่พบ: ${pre})`;
 
   const byDay = group(c.o, r => r.date, () => ({ a:0, b:0 }), (a, r) => { a.a += r.price; a.b += r.net; });
   let pts;
