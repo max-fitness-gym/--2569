@@ -34,8 +34,8 @@ svg{width:100%;height:auto;display:block}
 .lg{display:flex;gap:14px;font-size:12.5px;margin-top:8px;color:var(--mute)}.lg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
 #msg{display:none;background:var(--card);border:1px solid var(--dn);color:var(--dn);padding:10px 12px;border-radius:8px;margin-bottom:12px}
 [hidden]{display:none!important}
-.tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--line);overflow-x:auto}
-.tabs button{font:inherit;border:0;background:none;color:var(--mute);padding:8px 14px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+.tabs button{font:inherit;border:0;background:none;color:var(--mute);padding:8px 14px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
 .tabs button.on{color:var(--ink);font-weight:700;border-color:var(--c1)}
 .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 .bar input{flex:1;min-width:220px;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
@@ -154,6 +154,14 @@ function delta(id, cur, prev, sel, pre) {
   el.innerHTML = esc(p0) + `<span class="${p >= 0 ? 'up' : 'dn'}">${p >= 0 ? '▲ ' : '▼ '}${Math.abs(p).toFixed(1)}% จากเดือนก่อน</span>`;
 }
 
+const pctH = (cur, prev) => { if (!prev) return ''; const p = (cur - prev) / prev * 100, a = Math.abs(p);
+  return `<span class="${p >= 0 ? 'up' : 'dn'}">${p >= 0 ? '▲' : '▼'} ${a >= 100 ? a.toFixed(0) : a.toFixed(1)}%</span>`; };
+function segCard(id, n, v, pn, pvv, sel) {
+  const el = $(id); el.className = 'd';
+  if (sel === 'all' || pn === undefined) { el.textContent = 'ยอดสุทธิ ' + money(v) + (sel === 'all' ? ' · ทุกเดือนรวมกัน' : ''); return; }
+  el.innerHTML = `ยอดสุทธิ ${money(v)} ${pctH(v, pvv)}<br>ออเดอร์ ${pctH(n, pn)} เทียบเดือนก่อน`;
+}
+
 function table(id, heads, rows) {
   $(id).innerHTML = '<tr>' + heads.map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
     (rows.length ? rows.map(r => '<tr>' + r.map((c, i) => `<td class="${i ? 'r' : ''}">${esc(c)}</td>`).join('') + '</tr>').join('')
@@ -185,8 +193,8 @@ function render() {
   const sel = $('month').value, c = calc(sel), pv = sel === 'all' ? null : calc(prevKey(sel));
   $('k-so').textContent = money(c.so);   delta('d-so',  c.so,   pv && pv.so,   sel);
   $('k-fo').textContent = money(c.fo);   delta('d-fo',  c.fo,   pv && pv.fo,   sel);
-  $('k-b2c').textContent = fmt(c.b2cN);  delta('d-b2c', c.b2cN, pv && pv.b2cN, sel, 'ยอดสุทธิ ' + money(c.b2cV));
-  $('k-b2b').textContent = fmt(c.b2bN);  delta('d-b2b', c.b2bN, pv && pv.b2bN, sel, 'ยอดสุทธิ ' + money(c.b2bV));
+  $('k-b2c').textContent = fmt(c.b2cN);  segCard('d-b2c', c.b2cN, c.b2cV, pv ? pv.b2cN : undefined, pv ? pv.b2cV : undefined, sel);
+  $('k-b2b').textContent = fmt(c.b2bN);  segCard('d-b2b', c.b2bN, c.b2bV, pv ? pv.b2bN : undefined, pv ? pv.b2bV : undefined, sel);
   $('k-aov').textContent = '฿' + fmt(c.aov); delta('d-aov', c.aov, pv && pv.aov, sel);
 
   const byDay = group(c.o, r => r.date, () => ({ a:0, b:0 }), (a, r) => { a.a += r.price; a.b += r.net; });
