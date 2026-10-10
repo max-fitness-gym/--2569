@@ -81,7 +81,7 @@ svg{width:100%;height:auto;display:block}
  <section id="v-prod" hidden>
   <div class="bar"><input id="prodSel" list="prods" placeholder="🔍 พิมพ์ค้นหารุ่นสินค้า (เว้นว่าง = ทุกสินค้า)" autocomplete="off"><datalist id="prods"></datalist><span class="sub" id="prodInfo"></span></div>
   <div class="grid kpis3" id="p-kpi"></div>
-  <div class="grid half">
+  <div class="grid">
    <div class="card"><h2>จำนวนชิ้นที่ขาย รายเดือน (ทั้งปี)</h2><div id="p-month"></div></div>
    <div class="card"><h2>จำนวนชิ้นที่ขาย ตามจังหวัด (Top 10)</h2><div id="p-prov"></div></div>
   </div>
@@ -90,8 +90,7 @@ svg{width:100%;height:auto;display:block}
  <section id="v-ch" hidden>
   <div class="bar"><select id="chSel" aria-label="เลือกช่องทาง"></select></div>
   <div class="grid kpis3" id="c-kpi"></div>
-  <div class="card" style="margin-bottom:12px"><h2>ยอดขาย (บาท) และจำนวนชิ้น รายเดือน (ทั้งปี)</h2><div id="c-month"></div>
-   <div class="lg"><span><i style="background:var(--c1)"></i>ยอดสุทธิ (บาท) แกนซ้าย</span><span><i style="background:var(--c2)"></i>จำนวนชิ้น แกนขวา</span></div></div>
+  <div class="card" style="margin-bottom:12px"><h2>ยอดขาย (บาท) รายเดือน (ทั้งปี)</h2><div id="c-month"></div></div>
   <div class="card"><h2>จังหวัดที่ซื้อบ่อย (เรียงตามจำนวนออเดอร์) แสดงยอดสุทธิ</h2><div id="c-prov"></div></div>
  </section>
 </div>
@@ -114,7 +113,7 @@ const num = v => Number(String(v ?? '').replace(/[,฿\s]/g, '')) || 0;
 const norm = s => String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 const fmt = n => Math.round(n).toLocaleString('th-TH');
 const money = v => v >= 1e6 ? '฿' + (v/1e6).toFixed(2) + ' ล้าน' : '฿' + fmt(v);
-const short = v => v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v >= 1e3 ? Math.round(v/1e3) + 'k' : String(Math.round(v));
+const short = v => v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v >= 1e3 ? (+(v/1e3).toFixed(1)) + 'k' : String(Math.round(v));
 const monthName = k => new Date(+k.slice(0,4), +k.slice(5,7)-1, 1).toLocaleDateString('th-TH', { month:'long', year:'numeric' });
 const dayName = d => new Date(d).toLocaleDateString('th-TH', { day:'numeric', month:'short' });
 const inM = (d, sel) => sel === 'all' || String(d).startsWith(sel);
@@ -235,10 +234,11 @@ function kpis3(id, rows) {
   $(id).innerHTML = [['จำนวนชิ้นที่ขาย', fmt(q), '--c1'], ['ยอดสุทธิ', money(v), '--c3'], ['จำนวนออเดอร์', fmt(o), '--c2']]
     .map(([l, x, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${x}</div></div>`).join('');
 }
-function combo(id, pts, hasLine, fa) {
+function combo(id, pts, hasLine, fa, fl) {
+  fl = fl || short;
   const ok = pts.filter(q => q.a !== null);
   if (!ok.length) { $(id).innerHTML = '<p class="empty">ไม่มีข้อมูล</p>'; return; }
-  const W = 640, H = 260, p = { l:48, r: hasLine ? 48 : 14, t:22, b:28 };
+  const W = Math.max(300, $(id).clientWidth || 640), H = W < 500 ? 230 : 300, p = { l:44, r: hasLine ? 48 : 14, t:24, b:28 };
   const nice = m => { const pw = Math.pow(10, Math.floor(Math.log10(Math.max(m, 1)))); return Math.ceil(Math.max(m, 1) / pw) * pw; };
   const ma = nice(Math.max(...ok.map(q => q.a))), mb = nice(Math.max(...ok.map(q => q.b || 0)));
   const n = pts.length, x = i => p.l + (i + .5) * (W - p.l - p.r) / n, ya = v => H - p.b - v / ma * (H - p.t - p.b), yb = v => H - p.b - v / mb * (H - p.t - p.b);
@@ -247,13 +247,13 @@ function combo(id, pts, hasLine, fa) {
     s += `<line x1="${p.l}" x2="${W-p.r}" y1="${ya(ma/4*g)}" y2="${ya(ma/4*g)}" stroke="var(--line)"/><text x="${p.l-6}" y="${ya(ma/4*g)+4}" text-anchor="end" font-size="11" fill="var(--mute)">${short(ma/4*g)}</text>`;
     if (hasLine) s += `<text x="${W-p.r+6}" y="${yb(mb/4*g)+4}" font-size="11" fill="var(--c2)">${short(mb/4*g)}</text>`;
   }
-  pts.forEach((q, i) => s += `<text x="${x(i)}" y="${H-10}" text-anchor="middle" font-size="11" fill="var(--mute)" opacity="${q.a === null ? .45 : 1}">${esc(q.label)}</text>`);
+  pts.forEach((q, i) => s += `<text x="${x(i)}" y="${H-10}" text-anchor="middle" font-size="11" fill="var(--mute)" opacity="${q.a === null ? .45 : 1}">${esc((W - p.l - p.r) / n < 44 ? q.label.split(' ')[0] : q.label)}</text>`);
   const path = (k, y) => { let d = '', pen = false; pts.forEach((q, i) => { if (q[k] === null || q[k] === undefined) { pen = false; return; } d += (pen ? 'L' : 'M') + x(i) + ' ' + y(q[k]) + ' '; pen = true; }); return d; };
   if (hasLine) s += `<path d="${path('b', yb)}" fill="none" stroke="var(--c2)" stroke-width="2.5" stroke-linejoin="round"/>`;
   s += `<path d="${path('a', ya)}" fill="none" stroke="var(--c1)" stroke-width="2.5" stroke-linejoin="round"/>`;
   pts.forEach((q, i) => {
     if (hasLine && q.b !== null && q.b !== undefined) s += `<circle cx="${x(i)}" cy="${yb(q.b)}" r="3.5" fill="var(--c2)"/>`;
-    if (q.a !== null) s += `<circle cx="${x(i)}" cy="${ya(q.a)}" r="4" fill="var(--c1)"/><text x="${x(i)}" y="${ya(q.a)-9}" text-anchor="middle" font-size="10.5" fill="var(--ink)">${short(q.a)}</text>`;
+    if (q.a !== null) s += `<circle cx="${x(i)}" cy="${ya(q.a)}" r="4" fill="var(--c1)"/><text x="${x(i)}" y="${ya(q.a)-9}" text-anchor="middle" font-size="10.5" fill="var(--ink)">${fl(q.a)}</text>`;
   });
   const hi = ok.reduce((a, b) => b.a > a.a ? b : a), lo = ok.reduce((a, b) => b.a < a.a ? b : a);
   $(id).innerHTML = s + '</svg>' + (ok.length > 1
@@ -262,10 +262,11 @@ function combo(id, pts, hasLine, fa) {
 }
 function hbar(id, items, fv) {
   if (!items.length) { $(id).innerHTML = '<p class="empty">ไม่มีข้อมูล</p>'; return; }
-  const top = Math.max(...items.map(c => c[1]), 1);
-  let b = `<svg viewBox="0 0 300 ${items.length * 42 + 8}" role="img">`;
-  items.forEach((c, i) => { const yy = 8 + i * 42, w = Math.max(c[1] / top * 120, 2);
-    b += `<text x="0" y="${yy+12}" font-size="12.5" fill="var(--ink)">${esc(c[0])}</text><rect x="0" y="${yy+18}" width="${w}" height="14" rx="3" fill="var(--c1)"/><text x="${w+8}" y="${yy+30}" font-size="12" fill="var(--mute)">${fv(c[1])}${c[2] ? ' · ' + esc(c[2]) : ''}</text>`; });
+  const W = Math.max(300, $(id).clientWidth || 320), lw = Math.min(110, W * .28), rh = 26;
+  const room = Math.max(40, W - lw - (W < 500 ? 150 : 170)), top = Math.max(...items.map(c => c[1]), 1);
+  let b = `<svg viewBox="0 0 ${W} ${items.length * rh + 4}" role="img">`;
+  items.forEach((c, i) => { const y = 2 + i * rh, w = Math.max(c[1] / top * room, 2);
+    b += `<text x="0" y="${y+16}" font-size="12" fill="var(--ink)">${esc(c[0])}</text><rect x="${lw}" y="${y+5}" width="${w}" height="13" rx="3" fill="var(--c1)"/><text x="${lw+w+6}" y="${y+16}" font-size="11.5" fill="var(--mute)">${fv(c[1])}${c[2] ? ' · ' + esc(c[2]) : ''}</text>`; });
   $(id).innerHTML = b + '</svg>';
 }
 function renderProd() {
@@ -273,7 +274,7 @@ function renderProd() {
   const rows = q ? inMs.filter(r => norm(r.prod).includes(q)) : inMs, found = new Set(rows.map(r => r.prod)).size;
   $('prodInfo').textContent = q ? `พบ ${found} รุ่นที่ตรงกับคำค้น` : `ทุกสินค้า (${found} รุ่น)`;
   kpis3('p-kpi', rows);
-  combo('p-month', byMonth(rows, ms).map(x => ({ label: x.label, a: x.has ? x.q : null })), false, v => fmt(v) + ' ชิ้น');
+  combo('p-month', byMonth(rows, ms).map(x => ({ label: x.label, a: x.has ? x.q : null })), false, v => fmt(v) + ' ชิ้น', fmt);
   hbar('p-prov', [...group(rows, r => r.prov || 'ไม่ระบุ', () => ({ q:0 }), (a, r) => a.q += r.qty)]
     .sort((a, b) => b[1].q - a[1].q).slice(0, 10).map(([k, a]) => [k, a.q]), v => fmt(v) + ' ชิ้น');
 }
@@ -281,7 +282,7 @@ function renderCh() {
   const ms = monthsList(), c = $('chSel').value, inMs = ROWS.filter(r => ms.includes(r.date.slice(0,7)));
   const rows = c === 'all' ? inMs : inMs.filter(r => r.ch === c);
   kpis3('c-kpi', rows);
-  combo('c-month', byMonth(rows, ms).map(x => ({ label: x.label, a: x.has ? x.v : null, b: x.has ? x.q : null })), true, money);
+  combo('c-month', byMonth(rows, ms).map(x => ({ label: x.label, a: x.has ? x.v : null })), false, money);
   hbar('c-prov', [...group(rows, r => r.prov || 'ไม่ระบุ', () => ({ o:new Set(), v:0 }), (a, r) => { a.o.add(r.order); a.v += r.net; })]
     .sort((a, b) => b[1].o.size - a[1].o.size).slice(0, 10).map(([k, a]) => [k, a.v, fmt(a.o.size) + ' ออเดอร์']), money);
 }
@@ -294,6 +295,11 @@ function showTab(t) {
     t === 'prod' ? renderProd() : renderCh();
   }
 }
+
+let lastW = window.innerWidth;
+window.addEventListener('resize', () => { clearTimeout(window._rz); window._rz = setTimeout(() => {
+  if (window.innerWidth === lastW) return; lastW = window.innerWidth;
+  if (!$('v-prod').hidden) renderProd(); else if (!$('v-ch').hidden) renderCh(); }, 200); });
 
 function warn(t) { $('msg').style.display = 'block'; $('msg').textContent = t; }
 
