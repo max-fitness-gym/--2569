@@ -107,6 +107,9 @@ const CFG = {
 /* ================== */
 
 let ROWS = [];
+// แท็บหมวด/ประเภท/กลุ่มสินค้า (col = ชื่อหัวคอลัมน์ใน Sheet; ถ้าหัวคอลัมน์มีข้อความต่อท้าย เช่น "- เพิ่มใหม่" ก็อ่านได้)
+const CATS = [ { k:'cat', tab:'หมวดสินค้า', col:'หมวดสินค้า' }, { k:'typ', tab:'ประเภทสินค้า', col:'ประเภทสินค้า' }, { k:'grp', tab:'กลุ่มสินค้า', col:'กลุ่มสินค้า' } ];
+const TABS = ['ov', 'prod', 'ch', ...CATS.map(c => c.k)];
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const num = v => Number(String(v ?? '').replace(/[,฿\s]/g, '')) || 0;
@@ -294,20 +297,29 @@ function renderCh() {
   hbar('c-prov', [...group(rows, r => r.prov || 'ไม่ระบุ', () => ({ o:new Set(), v:0 }), (a, r) => { a.o.add(r.order); a.v += r.net; })]
     .sort((a, b) => b[1].o.size - a[1].o.size).slice(0, 10).map(([k, a]) => [k, a.v, fmt(a.o.size) + ' ออเดอร์']), money);
 }
+function renderCat(k) {
+  const ms = monthsList(), sel = $('f-' + k).value, inMs = ROWS.filter(r => ms.includes(r.date.slice(0,7)));
+  const rows = sel === 'all' ? inMs : inMs.filter(r => (r[k] || '(ไม่ระบุ)') === sel);
+  kpis3(k + '-kpi', rows);
+  combo(k + '-month', byMonth(rows, ms).map(x => ({ label: x.label, a: x.has ? x.v : null })), false, money);
+  table(k + '-top', ['สินค้า (รุ่น)', 'จำนวน', 'ยอดเงิน (฿)'],
+    [...group(rows, r => r.prod || 'ไม่ระบุ', () => ({ q:0, v:0 }), (a, r) => { a.q += r.qty; a.v += r.net; })]
+      .sort((a, b) => b[1].q - a[1].q).slice(0, 10).map(([p, a], i) => [(i + 1) + '. ' + p, fmt(a.q), fmt(a.v)]));
+}
 function showTab(t) {
-  ['ov', 'prod', 'ch'].forEach(k => $('v-' + k).hidden = k !== t);
+  TABS.forEach(k => $('v-' + k).hidden = k !== t);
   $('monthWrap').style.display = t === 'ov' ? '' : 'none';
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
   if (t === 'ov') render(); else {
     const ms = monthsList(); $('sub').textContent = ms.length ? 'ทั้งปี ' + (+ms[0].slice(0,4) + 543) : '';
-    t === 'prod' ? renderProd() : renderCh();
+    t === 'prod' ? renderProd() : t === 'ch' ? renderCh() : renderCat(t);
   }
 }
 
 let lastW = window.innerWidth;
 window.addEventListener('resize', () => { clearTimeout(window._rz); window._rz = setTimeout(() => {
   if (window.innerWidth === lastW) return; lastW = window.innerWidth;
-  if (!$('v-prod').hidden) renderProd(); else if (!$('v-ch').hidden) renderCh(); }, 200); });
+  if (!$('v-prod').hidden) renderProd(); else if (!$('v-ch').hidden) renderCh(); else { const c = CATS.find(x => !$('v-' + x.k).hidden); if (c) renderCat(c.k); } }, 200); });
 
 function warn(t) { $('msg').style.display = 'block'; $('msg').textContent = t; }
 
@@ -320,13 +332,17 @@ async function init() {
     else {
       const have = Object.keys(raw[0]).map(norm), miss = Object.values(C).filter(h => !have.includes(norm(h)));
       if (miss.length) warn('ไม่พบคอลัมน์: ' + miss.join(', ') + ' · หัวตารางที่พบ: ' + Object.keys(raw[0]).join(', '));
+      else { const missC = CATS.filter(c => !have.some(h => h.startsWith(norm(c.col)))).map(c => c.col);
+        if (missC.length) warn('ไม่พบคอลัมน์ใหม่: ' + missC.join(', ') + ' · หัวตารางที่พบ: ' + Object.keys(raw[0]).join(', ')); }
     }
     ROWS = raw.map((r, i) => {
       const n = {}; for (const k in r) n[norm(k)] = r[k];
-      const g = k => n[norm(C[k])], order = String(g('order') ?? '').trim() || ('(ว่าง)' + i), ou = order.toUpperCase();
+      const g = k => n[norm(C[k])],
+        gf = name => { const q = norm(name); if (q in n) return n[q]; const f = Object.keys(n).find(x => x.startsWith(q)); return f === undefined ? '' : n[f]; },
+        order = String(g('order') ?? '').trim() || ('(ว่าง)' + i), ou = order.toUpperCase();
       return { date: parseDate(g('date')), order, prod: String(g('prod') ?? '').trim(), qty: num(g('qty')), pre: marked(g('pre')),
         cust: String(g('cust') ?? '').trim(), cancel: marked(g('cancel')), ch: String(g('ch') ?? '').trim(),
-        prov: String(g('prov') ?? '').trim(), pay: String(g('pay') ?? '').trim(), price: num(g('price')), net: num(g('net')), ar: num(g('ar')),
+        prov: String(g('prov') ?? '').trim(), cat: String(gf(CATS[0].col) ?? '').trim(), typ: String(gf(CATS[1].col) ?? '').trim(), grp: String(gf(CATS[2].col) ?? '').trim(), pay: String(g('pay') ?? '').trim(), price: num(g('price')), net: num(g('net')), ar: num(g('ar')),
         b2b: norm(g('ch')) === norm(CFG.B2B_CHANNEL), fo: ou.startsWith('FO'), so: !ou.startsWith('FO') };
     }).filter(r => !(CFG.EXCLUDE_CANCELLED && r.cancel));
   } catch (e) { warn('โหลดข้อมูลไม่สำเร็จ (' + e.message + ')'); $('sub').textContent = 'ไม่มีข้อมูล'; }
@@ -336,6 +352,19 @@ async function init() {
   $('month').addEventListener('change', render);
   $('prods').innerHTML = [...group(ROWS, r => r.prod, () => ({ q:0 }), (a, r) => a.q += r.qty)].filter(([k]) => k).sort((a, b) => b[1].q - a[1].q).map(([k]) => `<option value="${esc(k)}">`).join('');
   $('chSel').innerHTML = '<option value="all">ทุกช่องทาง</option>' + [...group(ROWS, r => r.ch, () => ({ v:0 }), (a, r) => a.v += r.net)].filter(([k]) => k).sort((a, b) => b[1].v - a[1].v).map(([k]) => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
+  document.querySelector('.wrap').insertAdjacentHTML('beforeend', CATS.map(c => `
+ <section id="v-${c.k}" hidden>
+  <div class="bar"><select id="f-${c.k}" aria-label="เลือก${c.tab}"></select></div>
+  <div class="grid kpis3" id="${c.k}-kpi"></div>
+  <div class="card" style="margin-bottom:12px"><h2>ยอดขาย (บาท) รายเดือน (ทั้งปี) · ${c.tab}</h2><div id="${c.k}-month"></div></div>
+  <div class="card"><h2>10 อันดับสินค้าขายดี ใน${c.tab}ที่เลือก</h2><div class="scroll"><table id="${c.k}-top"></table></div></div>
+ </section>`).join(''));
+  $('tabs').insertAdjacentHTML('beforeend', CATS.map(c => `<button data-t="${c.k}">${c.tab}</button>`).join(''));
+  CATS.forEach(c => {
+    const m = group(ROWS, r => r[c.k] || '(ไม่ระบุ)', () => ({ v:0 }), (a, r) => a.v += r.net);
+    $('f-' + c.k).innerHTML = `<option value="all">ทุก${c.tab}</option>` + [...m].sort((a, b) => b[1].v - a[1].v).map(([k]) => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
+    $('f-' + c.k).addEventListener('change', () => renderCat(c.k));
+  });
   $('prodSel').addEventListener('input', renderProd);
   $('chSel').addEventListener('change', renderCh);
   document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.t)));
