@@ -42,6 +42,9 @@ svg{width:100%;height:auto;display:block}
 .kpis3{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:12px}
 .half{grid-template-columns:1fr 1fr;margin-bottom:12px}
 @media(max-width:760px){.half{grid-template-columns:1fr}}
+.cmp2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.cmp{display:flex;align-items:center;gap:6px;font-size:14px;margin:0 0 8px}.cmp i,.lg i.sw{display:inline-block;width:10px;height:10px;border-radius:2px}
+.bar label{display:flex;align-items:center;gap:6px;color:var(--mute);font-size:13px}
 </style>
 </head>
 <body>
@@ -297,14 +300,59 @@ function renderCh() {
   hbar('c-prov', [...group(rows, r => r.prov || 'ไม่ระบุ', () => ({ o:new Set(), v:0 }), (a, r) => { a.o.add(r.order); a.v += r.net; })]
     .sort((a, b) => b[1].o.size - a[1].o.size).slice(0, 10).map(([k, a]) => [k, a.v, fmt(a.o.size) + ' ออเดอร์']), money);
 }
+const kpiCards = rows => {
+  const q = rows.reduce((a, r) => a + r.qty, 0), v = rows.reduce((a, r) => a + r.net, 0), o = new Set(rows.map(r => r.order)).size;
+  return [['จำนวนชิ้นที่ขาย', fmt(q), '--c1'], ['ยอดสุทธิ', money(v), '--c3'], ['จำนวนออเดอร์', fmt(o), '--c2']]
+    .map(([l, x, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${x}</div></div>`).join('');
+};
+const tableHtml = (heads, rows) => '<tr>' + heads.map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
+  (rows.length ? rows.map(r => '<tr>' + r.map((c, i) => `<td class="${i ? 'r' : ''}">${esc(c)}</td>`).join('') + '</tr>').join('')
+               : `<tr><td class="empty" colspan="${heads.length}">ไม่มีข้อมูลในช่วงนี้</td></tr>`);
+
+function lines2(id, series, fa, fl) {
+  const all = series.flatMap(s => s.pts.filter(q => q.v !== null));
+  if (!all.length) { $(id).innerHTML = '<p class="empty">ไม่มีข้อมูล</p>'; return; }
+  const W = Math.max(300, $(id).clientWidth || 640), H = W < 500 ? 230 : 300, p = { l:44, r:14, t:24, b:28 };
+  const pw = Math.pow(10, Math.floor(Math.log10(Math.max(...all.map(q => q.v), 1)))), mx = Math.ceil(Math.max(...all.map(q => q.v), 1) / pw) * pw;
+  const n = series[0].pts.length, x = i => p.l + (i + .5) * (W - p.l - p.r) / n, y = v => H - p.b - v / mx * (H - p.t - p.b);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img">`;
+  for (let g = 0; g <= 4; g++) s += `<line x1="${p.l}" x2="${W-p.r}" y1="${y(mx/4*g)}" y2="${y(mx/4*g)}" stroke="var(--line)"/><text x="${p.l-6}" y="${y(mx/4*g)+4}" text-anchor="end" font-size="11" fill="var(--mute)">${short(mx/4*g)}</text>`;
+  series[0].pts.forEach((q, i) => s += `<text x="${x(i)}" y="${H-10}" text-anchor="middle" font-size="11" fill="var(--mute)" opacity="${series.every(sr => sr.pts[i].v === null) ? .45 : 1}">${esc((W - p.l - p.r) / n < 44 ? q.label.split(' ')[0] : q.label)}</text>`);
+  series.forEach(sr => { let d = '', pen = false;
+    sr.pts.forEach((q, i) => { if (q.v === null) { pen = false; return; } d += (pen ? 'L' : 'M') + x(i) + ' ' + y(q.v) + ' '; pen = true; });
+    s += `<path d="${d}" fill="none" stroke="var(${sr.color})" stroke-width="2.5" stroke-linejoin="round"/>`; });
+  series.forEach((sr, si) => sr.pts.forEach((q, i) => { if (q.v === null) return;
+    s += `<circle cx="${x(i)}" cy="${y(q.v)}" r="4" fill="var(${sr.color})"/><text x="${x(i)}" y="${y(q.v) + (si ? 17 : -9)}" text-anchor="middle" font-size="10.5" fill="var(${sr.color})">${fl(q.v)}</text>`; }));
+  let note = '';
+  series.forEach(sr => { const ok = sr.pts.filter(q => q.v !== null);
+    if (ok.length) { const hi = ok.reduce((a, b) => b.v > a.v ? b : a), lo = ok.reduce((a, b) => b.v < a.v ? b : a);
+      note += `<p class="sub"><i class="sw" style="background:var(${sr.color})"></i> ${series.length > 1 ? '<b>' + esc(sr.name) + '</b>: ' : ''}${ok.length > 1 ? `สูงสุด ${esc(hi.label)} (${fa(hi.v)}) · ต่ำสุด ${esc(lo.label)} (${fa(lo.v)})` : `มีข้อมูล 1 เดือน (${esc(ok[0].label)})`}</p>`; } });
+  $(id).innerHTML = s + '</svg>' + note;
+}
+
 function renderCat(k) {
-  const ms = monthsList(), sel = $('f-' + k).value, inMs = ROWS.filter(r => ms.includes(r.date.slice(0,7)));
-  const rows = sel === 'all' ? inMs : inMs.filter(r => (r[k] || '(ไม่ระบุ)') === sel);
-  kpis3(k + '-kpi', rows);
-  combo(k + '-month', byMonth(rows, ms).map(x => ({ label: x.label, a: x.has ? x.v : null })), false, money);
-  table(k + '-top', ['สินค้า (รุ่น)', 'จำนวน', 'ยอดเงิน (฿)'],
-    [...group(rows, r => r.prod || 'ไม่ระบุ', () => ({ q:0, v:0 }), (a, r) => { a.q += r.qty; a.v += r.net; })]
-      .sort((a, b) => b[1].q - a[1].q).slice(0, 10).map(([p, a], i) => [(i + 1) + '. ' + p, fmt(a.q), fmt(a.v)]));
+  const cf = CATS.find(c => c.k === k), ms = monthsList(), inMs = ROWS.filter(r => ms.includes(r.date.slice(0,7)));
+  const sa = $('f-' + k).value, sb = $('g-' + k).value, mt = $('m-' + k).value;
+  const sels = [sa]; if (sb !== 'none' && sb !== sa) sels.push(sb);
+  const series = sels.map((v, i) => {
+    const rows = v === 'all' ? inMs : inMs.filter(r => (r[k] || '(ไม่ระบุ)') === v), bm = byMonth(rows, ms);
+    let vals = bm.map(x => x.has ? (mt === 'qty' ? x.q : x.v) : null);
+    if (mt === 'idx') { const bi = vals.findIndex(x => x), base = bi >= 0 ? vals[bi] : 0; vals = vals.map((x, j) => (x === null || !base || j < bi) ? null : x / base * 100); }
+    return { name: v === 'all' ? 'ทุก' + cf.tab : v, color: i ? '--c2' : '--c1', rows, pts: bm.map((x, j) => ({ label: x.label, v: vals[j] })) };
+  });
+  const cmp = series.length > 1;
+  const sw = sr => `<h2 class="cmp"><i class="sw" style="background:var(${sr.color})"></i>${esc(sr.name)}</h2>`;
+  $(k + '-kpi').className = cmp ? 'grid cmp2' : 'grid kpis3';
+  $(k + '-kpi').innerHTML = cmp ? series.map(sr => `<div>${sw(sr)}<div class="grid kpis3" style="margin-bottom:0">${kpiCards(sr.rows)}</div></div>`).join('') : kpiCards(series[0].rows);
+  $(k + '-ctitle').textContent = (mt === 'qty' ? 'จำนวนชิ้น' : mt === 'idx' ? 'ดัชนียอดสุทธิ (เดือนแรกที่มีข้อมูล = 100)' : 'ยอดขาย (บาท)') + ' รายเดือน (ทั้งปี) · ' + cf.tab;
+  lines2(k + '-month', series,
+    mt === 'qty' ? v => fmt(v) + ' ชิ้น' : mt === 'idx' ? v => v.toFixed(0) : money,
+    mt === 'qty' ? fmt : mt === 'idx' ? v => Math.round(v) : short);
+  $(k + '-tops').className = cmp ? 'grid cmp2' : 'grid';
+  $(k + '-tops').innerHTML = series.map(sr => `<div class="card"><h2>${cmp ? '' : ''}10 อันดับสินค้าขายดี · ${esc(sr.name)}</h2><div class="scroll"><table>` +
+    tableHtml(['สินค้า (รุ่น)', 'จำนวน', 'ยอดเงิน (฿)'],
+      [...group(sr.rows, r => r.prod || 'ไม่ระบุ', () => ({ q:0, v:0 }), (a, r) => { a.q += r.qty; a.v += r.net; })]
+        .sort((a, b) => b[1].q - a[1].q).slice(0, 10).map(([p, a], i) => [(i + 1) + '. ' + p, fmt(a.q), fmt(a.v)])) + '</table></div></div>').join('');
 }
 function showTab(t) {
   TABS.forEach(k => $('v-' + k).hidden = k !== t);
@@ -354,16 +402,22 @@ async function init() {
   $('chSel').innerHTML = '<option value="all">ทุกช่องทาง</option>' + [...group(ROWS, r => r.ch, () => ({ v:0 }), (a, r) => a.v += r.net)].filter(([k]) => k).sort((a, b) => b[1].v - a[1].v).map(([k]) => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
   document.querySelector('.wrap').insertAdjacentHTML('beforeend', CATS.map(c => `
  <section id="v-${c.k}" hidden>
-  <div class="bar"><select id="f-${c.k}" aria-label="เลือก${c.tab}"></select></div>
+  <div class="bar">
+   <label>เลือก <select id="f-${c.k}" aria-label="เลือก${c.tab}"></select></label>
+   <label>เปรียบเทียบกับ <select id="g-${c.k}" aria-label="เปรียบเทียบกับ"></select></label>
+   <label>ดูเป็น <select id="m-${c.k}"><option value="net">ยอดสุทธิ (บาท)</option><option value="qty">จำนวนชิ้น</option><option value="idx">ดัชนี (เดือนแรก = 100)</option></select></label>
+  </div>
   <div class="grid kpis3" id="${c.k}-kpi"></div>
-  <div class="card" style="margin-bottom:12px"><h2>ยอดขาย (บาท) รายเดือน (ทั้งปี) · ${c.tab}</h2><div id="${c.k}-month"></div></div>
-  <div class="card"><h2>10 อันดับสินค้าขายดี ใน${c.tab}ที่เลือก</h2><div class="scroll"><table id="${c.k}-top"></table></div></div>
+  <div class="card" style="margin-bottom:12px"><h2 id="${c.k}-ctitle"></h2><div id="${c.k}-month"></div></div>
+  <div class="grid" id="${c.k}-tops"></div>
  </section>`).join(''));
   $('tabs').insertAdjacentHTML('beforeend', CATS.map(c => `<button data-t="${c.k}">${c.tab}</button>`).join(''));
   CATS.forEach(c => {
     const m = group(ROWS, r => r[c.k] || '(ไม่ระบุ)', () => ({ v:0 }), (a, r) => a.v += r.net);
-    $('f-' + c.k).innerHTML = `<option value="all">ทุก${c.tab}</option>` + [...m].sort((a, b) => b[1].v - a[1].v).map(([k]) => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
-    $('f-' + c.k).addEventListener('change', () => renderCat(c.k));
+    const opts = `<option value="all">ทุก${c.tab}</option>` + [...m].sort((a, b) => b[1].v - a[1].v).map(([k]) => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
+    $('f-' + c.k).innerHTML = opts;
+    $('g-' + c.k).innerHTML = '<option value="none">ไม่เปรียบเทียบ</option>' + opts;
+    ['f-', 'g-', 'm-'].forEach(pf => $(pf + c.k).addEventListener('change', () => renderCat(c.k)));
   });
   $('prodSel').addEventListener('input', renderProd);
   $('chSel').addEventListener('change', renderCh);
