@@ -96,6 +96,15 @@ svg{width:100%;height:auto;display:block}
   <div class="card" style="margin-bottom:12px"><h2>ยอดขาย (บาท) รายเดือน (ทั้งปี)</h2><div id="c-month"></div></div>
   <div class="card"><h2>จังหวัดที่ซื้อบ่อย (เรียงตามจำนวนออเดอร์) แสดงยอดสุทธิ</h2><div id="c-prov"></div></div>
  </section>
+ <section id="v-per" hidden>
+  <div class="bar">
+   <label>มุมมอง <select id="per-view"><option value="pm">ต้น / กลาง / ปลายเดือน</option><option value="wk">รายสัปดาห์</option><option value="cp">แคมเปญ Shopee</option></select></label>
+   <label>ดูเป็น <select id="per-m"><option value="net">ยอดสุทธิ (บาท)</option><option value="qty">จำนวนชิ้น</option></select></label>
+   <label id="per-modeW">แสดง <select id="per-mode"><option value="tot">ยอดรวม</option><option value="avg">เฉลี่ยต่อวัน</option></select></label>
+  </div>
+  <div class="card" style="margin-bottom:12px"><h2 id="per-title"></h2><div id="per-chart"></div></div>
+  <div class="grid" id="per-tables"></div>
+ </section>
 </div>
 
 <script>
@@ -112,7 +121,7 @@ const CFG = {
 let ROWS = [];
 // แท็บหมวด/ประเภท/กลุ่มสินค้า (col = ชื่อหัวคอลัมน์ใน Sheet; ถ้าหัวคอลัมน์มีข้อความต่อท้าย เช่น "- เพิ่มใหม่" ก็อ่านได้)
 const CATS = [ { k:'cat', tab:'หมวดสินค้า', col:'หมวดสินค้า' }, { k:'typ', tab:'ประเภทสินค้า', col:'ประเภทสินค้า' }, { k:'grp', tab:'กลุ่มสินค้า', col:'กลุ่มสินค้า' } ];
-const TABS = ['ov', 'prod', 'ch', ...CATS.map(c => c.k)];
+const TABS = ['ov', 'prod', 'ch', ...CATS.map(c => c.k), 'per'];
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const num = v => Number(String(v ?? '').replace(/[,฿\s]/g, '')) || 0;
@@ -309,7 +318,7 @@ const tableHtml = (heads, rows) => '<tr>' + heads.map((h, i) => `<th class="${i 
   (rows.length ? rows.map(r => '<tr>' + r.map((c, i) => `<td class="${i ? 'r' : ''}">${esc(c)}</td>`).join('') + '</tr>').join('')
                : `<tr><td class="empty" colspan="${heads.length}">ไม่มีข้อมูลในช่วงนี้</td></tr>`);
 
-function lines2(id, series, fa, fl) {
+function lines2(id, series, fa, fl, o = {}) {
   const all = series.flatMap(s => s.pts.filter(q => q.v !== null));
   if (!all.length) { $(id).innerHTML = '<p class="empty">ไม่มีข้อมูล</p>'; return; }
   const W = Math.max(300, $(id).clientWidth || 640), H = W < 500 ? 230 : 300, p = { l:44, r:14, t:24, b:28 };
@@ -317,12 +326,12 @@ function lines2(id, series, fa, fl) {
   const n = series[0].pts.length, x = i => p.l + (i + .5) * (W - p.l - p.r) / n, y = v => H - p.b - v / mx * (H - p.t - p.b);
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img">`;
   for (let g = 0; g <= 4; g++) s += `<line x1="${p.l}" x2="${W-p.r}" y1="${y(mx/4*g)}" y2="${y(mx/4*g)}" stroke="var(--line)"/><text x="${p.l-6}" y="${y(mx/4*g)+4}" text-anchor="end" font-size="11" fill="var(--mute)">${short(mx/4*g)}</text>`;
-  series[0].pts.forEach((q, i) => s += `<text x="${x(i)}" y="${H-10}" text-anchor="middle" font-size="11" fill="var(--mute)" opacity="${series.every(sr => sr.pts[i].v === null) ? .45 : 1}">${esc((W - p.l - p.r) / n < 44 ? q.label.split(' ')[0] : q.label)}</text>`);
+  series[0].pts.forEach((q, i) => s += `<text x="${x(i)}" y="${H-10}" text-anchor="middle" font-size="11" fill="var(--mute)" opacity="${series.every(sr => sr.pts[i].v === null) ? .45 : 1}">${(i % (o.step || 1)) ? '' : esc((W - p.l - p.r) / n < 44 && !o.step ? q.label.split(' ')[0] : q.label)}</text>`);
   series.forEach(sr => { let d = '', pen = false;
     sr.pts.forEach((q, i) => { if (q.v === null) { pen = false; return; } d += (pen ? 'L' : 'M') + x(i) + ' ' + y(q.v) + ' '; pen = true; });
     s += `<path d="${d}" fill="none" stroke="var(${sr.color})" stroke-width="2.5" stroke-linejoin="round"/>`; });
   series.forEach((sr, si) => sr.pts.forEach((q, i) => { if (q.v === null) return;
-    s += `<circle cx="${x(i)}" cy="${y(q.v)}" r="4" fill="var(${sr.color})"/><text x="${x(i)}" y="${y(q.v) + (si ? 17 : -9)}" text-anchor="middle" font-size="10.5" fill="var(${sr.color})">${fl(q.v)}</text>`; }));
+    s += `<circle cx="${x(i)}" cy="${y(q.v)}" r="${o.r || 4}" fill="var(${sr.color})"/>${o.nov ? '' : `<text x="${x(i)}" y="${y(q.v) + (si ? 17 : -9)}" text-anchor="middle" font-size="10.5" fill="var(${sr.color})">${fl(q.v)}</text>`}`; }));
   let note = '';
   series.forEach(sr => { const ok = sr.pts.filter(q => q.v !== null);
     if (ok.length) { const hi = ok.reduce((a, b) => b.v > a.v ? b : a), lo = ok.reduce((a, b) => b.v < a.v ? b : a);
@@ -354,20 +363,94 @@ function renderCat(k) {
       [...group(sr.rows, r => r.prod || 'ไม่ระบุ', () => ({ q:0, v:0 }), (a, r) => { a.q += r.qty; a.v += r.net; })]
         .sort((a, b) => b[1].q - a[1].q).slice(0, 10).map(([p, a], i) => [(i + 1) + '. ' + p, fmt(a.q), fmt(a.v)])) + '</table></div></div>').join('');
 }
+function gbars(id, cats, series, fl) {
+  const all = series.flatMap(sr => sr.vals.filter(v => v !== null && v !== undefined));
+  if (!all.length) { $(id).innerHTML = '<p class="empty">ไม่มีข้อมูล</p>'; return; }
+  const W = Math.max(300, $(id).clientWidth || 640), H = W < 500 ? 230 : 300, p = { l:44, r:10, t:22, b:28 };
+  const pw = Math.pow(10, Math.floor(Math.log10(Math.max(...all, 1)))), mx = Math.ceil(Math.max(...all, 1) / pw) * pw;
+  const n = cats.length, gw = (W - p.l - p.r) / n, bw = gw * .8 / series.length, y = v => H - p.b - v / mx * (H - p.t - p.b);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img">`;
+  for (let g = 0; g <= 4; g++) s += `<line x1="${p.l}" x2="${W-p.r}" y1="${y(mx/4*g)}" y2="${y(mx/4*g)}" stroke="var(--line)"/><text x="${p.l-6}" y="${y(mx/4*g)+4}" text-anchor="end" font-size="11" fill="var(--mute)">${short(mx/4*g)}</text>`;
+  cats.forEach((c, i) => s += `<text x="${p.l + (i + .5) * gw}" y="${H-10}" text-anchor="middle" font-size="11" fill="var(--mute)">${esc(gw < 44 ? c.split(' ')[0] : c)}</text>`);
+  series.forEach((sr, si) => sr.vals.forEach((v, i) => { if (v === null || v === undefined) return;
+    const bx = p.l + i * gw + gw * .1 + si * bw;
+    s += `<rect x="${bx}" y="${y(v)}" width="${Math.max(bw - 1, 1)}" height="${H - p.b - y(v)}" rx="2" fill="var(${sr.color})"/>`;
+    if (bw >= 26) s += `<text x="${bx + bw/2}" y="${y(v) - 4}" text-anchor="middle" font-size="9.5" fill="var(--ink)">${fl(v)}</text>`; }));
+  $(id).innerHTML = s + '</svg><div class="lg">' + series.map(sr => `<span><i style="background:var(${sr.color})"></i>${esc(sr.name)}</span>`).join('') + '</div>';
+}
+
+function renderPer() {
+  const v = $('per-view').value, mt = $('per-m').value, mode = $('per-mode').value, ms = monthsList();
+  $('per-modeW').style.display = v === 'cp' ? 'none' : '';
+  if (!ms.length) { $('per-chart').innerHTML = '<p class="empty">ไม่มีข้อมูล</p>'; $('per-tables').innerHTML = ''; return; }
+  const yr = ms[0].slice(0,4), inY = ROWS.filter(r => r.date.startsWith(yr)), last = inY.reduce((a, r) => r.date > a ? r.date : a, '');
+  const val = r => mt === 'qty' ? r.qty : r.net, fm = mt === 'qty' ? x => fmt(x) + ' ชิ้น' : money, mname = mt === 'qty' ? 'จำนวนชิ้น' : 'ยอดสุทธิ (บาท)';
+  const hasM = new Set(inY.map(r => r.date.slice(0,7))), dim = mk => new Date(+mk.slice(0,4), +mk.slice(5,7), 0).getDate();
+  const card = (h, heads, rows) => `<div class="card"><h2>${h}</h2><div class="scroll"><table>${tableHtml(heads, rows)}</table></div></div>`;
+  const pct = x => (x >= 0 ? '+' : '') + x.toFixed(0) + '%';
+
+  if (v === 'pm') {
+    const g = new Map(); inY.forEach(r => { const d = +r.date.slice(8,10), k = r.date.slice(0,7) + '|' + (d <= 10 ? 0 : d <= 20 ? 1 : 2); g.set(k, (g.get(k) || 0) + val(r)); });
+    const pdays = (mk, pi) => { const st = [1, 11, 21][pi], en = [10, 20, dim(mk)][pi]; let e = en;
+      if (last.slice(0,7) === mk) e = Math.min(en, +last.slice(8,10)); else if (mk > last.slice(0,7)) return 0; return Math.max(0, e - st + 1); };
+    const names = ['ต้นเดือน (1–10)', 'กลางเดือน (11–20)', 'ปลายเดือน (21–สิ้นเดือน)'], cols = ['--c1', '--c2', '--c3'];
+    const series = [0, 1, 2].map(pi => ({ name: names[pi], color: cols[pi], vals: ms.map(mk => { const d = pdays(mk, pi);
+      if (!d || !hasM.has(mk)) return null; const t = g.get(mk + '|' + pi) || 0; return mode === 'avg' ? t / d : t; }) }));
+    $('per-title').textContent = mname + (mode === 'avg' ? ' เฉลี่ยต่อวัน' : '') + ' · ต้น / กลาง / ปลายเดือน (ทั้งปี)';
+    gbars('per-chart', ms.map(mShort), series, short);
+    const agg = [0, 1, 2].map(pi => { let t = 0, d = 0; ms.forEach(mk => { const dd = pdays(mk, pi); if (dd && hasM.has(mk)) { t += g.get(mk + '|' + pi) || 0; d += dd; } }); return { t, d }; });
+    const tt = agg.reduce((a, x) => a + x.t, 0) || 1;
+    $('per-tables').innerHTML = card('สรุปทั้งปี แยกตามช่วงของเดือน', ['ช่วง', 'ยอดรวม', 'เฉลี่ย / วัน', '% ของยอดรวม'],
+      agg.map((x, i) => [names[i], fm(x.t), x.d ? fm(x.t / x.d) : '-', (x.t / tt * 100).toFixed(1) + '%']));
+  } else if (v === 'wk') {
+    const dow = (new Date(+yr, 0, 1).getDay() + 6) % 7, start0 = new Date(+yr, 0, 1 - dow);
+    const idx = ds => Math.round((new Date(+ds.slice(0,4), +ds.slice(5,7) - 1, +ds.slice(8,10)) - start0) / 864e5);
+    const iso = dt => dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+    const yEnd = idx(yr + '-12-31'), lastIdx = idx(last), nW = Math.floor(yEnd / 7) + 1, tot = Array(nW).fill(0), cnt = Array(nW).fill(0);
+    inY.forEach(r => { const w = Math.floor(idx(r.date) / 7); tot[w] += val(r); cnt[w]++; });
+    const pts = tot.map((t, w) => { const a = Math.max(7 * w, dow), e = Math.min(7 * w + 6, yEnd, lastIdx), days = Math.max(0, e - a + 1);
+      return { label: dayName(iso(new Date(start0.getTime() + a * 864e5))), v: cnt[w] ? (mode === 'avg' ? t / Math.max(days, 1) : t) : null, t, days }; });
+    $('per-title').textContent = mname + (mode === 'avg' ? ' เฉลี่ยต่อวัน' : '') + ' · รายสัปดาห์ (จันทร์–อาทิตย์) ทั้งปี';
+    lines2('per-chart', [{ name: '', color: '--c1', pts }], fm, short, { step: ($('per-chart').clientWidth || 640) < 500 ? 8 : 4, nov: true, r: 2.5 });
+    const part = pts.filter(q => q.v !== null && q.days < 7).map(q => q.label);
+    if (part.length) $('per-chart').insertAdjacentHTML('beforeend', `<p class="sub">สัปดาห์ที่มีข้อมูลไม่ครบ 7 วัน (เริ่ม ${esc(part.join(', '))}) ยอดรวมจึงต่ำกว่าสัปดาห์เต็ม ใช้ "เฉลี่ยต่อวัน" เทียบได้แฟร์กว่า</p>`);
+    $('per-tables').innerHTML = card('5 สัปดาห์ที่ขายดีที่สุด', ['สัปดาห์ที่เริ่ม', 'ยอดรวม', 'เฉลี่ย / วัน'],
+      pts.filter(q => q.v !== null).sort((a, b) => b.v - a.v).slice(0, 5).map(q => [q.label + (q.days < 7 ? ` (${q.days} วัน)` : ''), fm(q.t), fm(q.t / Math.max(q.days, 1))]));
+  } else {
+    const day = new Map(); inY.filter(r => norm(r.ch) === 'shopee').forEach(r => day.set(r.date, (day.get(r.date) || 0) + val(r)));
+    if (!day.size) { $('per-title').textContent = 'แคมเปญ Shopee'; $('per-chart').innerHTML = '<p class="empty">ไม่พบข้อมูลช่องทาง Shopee</p>'; $('per-tables').innerHTML = ''; return; }
+    const kinds = { dd: 'd.d (1.1, 2.2 …)', mid: 'mid (วันที่ 15)', pay: 'pay day (วันที่ 25)' }, kcol = { dd: '--c1', mid: '--c2', pay: '--c3' }, ev = [], baseM = {};
+    ms.forEach(mk => { if (!hasM.has(mk)) return; const m = +mk.slice(5,7), top = last.slice(0,7) === mk ? +last.slice(8,10) : dim(mk); let sum = 0, n = 0;
+      for (let d = 1; d <= top; d++) { if (d === m || d === 15 || d === 25) continue; sum += day.get(mk + '-' + String(d).padStart(2, '0')) || 0; n++; }
+      baseM[mk] = n ? sum / n : 0;
+      [[m, 'dd'], [15, 'mid'], [25, 'pay']].forEach(([d, k]) => { if (d <= top) ev.push({ mk, d, k, m, v: day.get(mk + '-' + String(d).padStart(2, '0')) || 0, base: baseM[mk] }); }); });
+    const series = ['dd', 'mid', 'pay'].map(k => ({ name: kinds[k], color: kcol[k], vals: ms.map(mk => { const e = ev.find(x => x.mk === mk && x.k === k); return e ? e.v : null; }) }));
+    series.push({ name: 'วันปกติ (เฉลี่ย/วัน)', color: '--mute', vals: ms.map(mk => mk in baseM ? baseM[mk] : null) });
+    $('per-title').textContent = mname + ' วันแคมเปญ Shopee เทียบวันปกติ (ทั้งปี)';
+    gbars('per-chart', ms.map(mShort), series, short);
+    const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+    const sumRows = Object.keys(kinds).map(k => { const e = ev.filter(x => x.k === k), a = avg(e.map(x => x.v)), b = avg(e.map(x => x.base)); return [kinds[k], fmt(e.length) + ' ครั้ง', fm(a), fm(b), b ? pct((a / b - 1) * 100) : '-']; });
+    const lab = e => e.k === 'dd' ? `${e.m}.${e.m}` : `${e.d}.${e.m}`;
+    $('per-tables').innerHTML = card('สรุปแคมเปญ Shopee: เฉลี่ยวันแคมเปญ เทียบวันปกติของเดือนเดียวกัน', ['แคมเปญ', 'จำนวน', 'เฉลี่ยวันแคมเปญ', 'เฉลี่ยวันปกติ', 'สูงกว่าวันปกติ'], sumRows) +
+      card('รายละเอียดทุกแคมเปญ', ['แคมเปญ', 'ยอดวันนั้น', 'วันปกติ (เฉลี่ย)', 'ผลต่าง'],
+        ev.slice().sort((a, b) => (a.mk + String(a.d).padStart(2, '0')) < (b.mk + String(b.d).padStart(2, '0')) ? -1 : 1).map(e => [lab(e) + ' · ' + kinds[e.k].split(' ')[0], fm(e.v), fm(e.base), e.base ? pct((e.v / e.base - 1) * 100) : '-']));
+  }
+}
+
 function showTab(t) {
   TABS.forEach(k => $('v-' + k).hidden = k !== t);
   $('monthWrap').style.display = t === 'ov' ? '' : 'none';
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
   if (t === 'ov') render(); else {
     const ms = monthsList(); $('sub').textContent = ms.length ? 'ทั้งปี ' + (+ms[0].slice(0,4) + 543) : '';
-    t === 'prod' ? renderProd() : t === 'ch' ? renderCh() : renderCat(t);
+    t === 'prod' ? renderProd() : t === 'ch' ? renderCh() : t === 'per' ? renderPer() : renderCat(t);
   }
 }
 
 let lastW = window.innerWidth;
 window.addEventListener('resize', () => { clearTimeout(window._rz); window._rz = setTimeout(() => {
   if (window.innerWidth === lastW) return; lastW = window.innerWidth;
-  if (!$('v-prod').hidden) renderProd(); else if (!$('v-ch').hidden) renderCh(); else { const c = CATS.find(x => !$('v-' + x.k).hidden); if (c) renderCat(c.k); } }, 200); });
+  if (!$('v-prod').hidden) renderProd(); else if (!$('v-ch').hidden) renderCh(); else if (!$('v-per').hidden) renderPer(); else { const c = CATS.find(x => !$('v-' + x.k).hidden); if (c) renderCat(c.k); } }, 200); });
 
 function warn(t) { $('msg').style.display = 'block'; $('msg').textContent = t; }
 
@@ -411,7 +494,7 @@ async function init() {
   <div class="card" style="margin-bottom:12px"><h2 id="${c.k}-ctitle"></h2><div id="${c.k}-month"></div></div>
   <div class="grid" id="${c.k}-tops"></div>
  </section>`).join(''));
-  $('tabs').insertAdjacentHTML('beforeend', CATS.map(c => `<button data-t="${c.k}">${c.tab}</button>`).join(''));
+  $('tabs').insertAdjacentHTML('beforeend', CATS.map(c => `<button data-t="${c.k}">${c.tab}</button>`).join('') + '<button data-t="per">ช่วงเวลา</button>');
   CATS.forEach(c => {
     const m = group(ROWS, r => r[c.k] || '(ไม่ระบุ)', () => ({ v:0 }), (a, r) => a.v += r.net);
     const opts = `<option value="all">ทุก${c.tab}</option>` + [...m].sort((a, b) => b[1].v - a[1].v).map(([k]) => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
@@ -420,6 +503,7 @@ async function init() {
     ['f-', 'g-', 'm-'].forEach(pf => $(pf + c.k).addEventListener('change', () => renderCat(c.k)));
   });
   $('prodSel').addEventListener('input', renderProd);
+  ['per-view', 'per-m', 'per-mode'].forEach(id => $(id).addEventListener('change', renderPer));
   $('chSel').addEventListener('change', renderCh);
   document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.t)));
   render();
