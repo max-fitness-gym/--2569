@@ -610,7 +610,7 @@ async function init() {
   $('ld-y').innerHTML = '<option value="all">ทุกปี</option>' + lys.map(y => `<option value="${y}">${+y + 543}</option>`).join('');
   $('ld-m').innerHTML = '<option value="all">ทุกเดือน</option>' + Array.from({ length: 12 }, (_, i) => `<option value="${String(i + 1).padStart(2, '0')}">${new Date(2000, i, 1).toLocaleDateString('th-TH', { month: 'long' })}</option>`).join('');
   $('ld-o').innerHTML = '<option value="all">ทุกคน</option>' + OFFS.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
-  ['ld-y', 'ld-m', 'ld-o'].forEach(id => $(id).addEventListener('change', renderLd));
+  ['ld-y', 'ld-m', 'ld-o'].forEach(id => { $(id).value = 'all'; $(id).addEventListener('change', renderLd); });
   $('chSel').addEventListener('change', renderCh);
   document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.t)));
   render();
