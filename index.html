@@ -45,6 +45,8 @@ svg{width:100%;height:auto;display:block}
 .cmp2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
 .cmp{display:flex;align-items:center;gap:6px;font-size:14px;margin:0 0 8px}.cmp i,.lg i.sw{display:inline-block;width:10px;height:10px;border-radius:2px}
 .bar label{display:flex;align-items:center;gap:6px;color:var(--mute);font-size:13px}
+.n2{display:block;color:var(--mute);font-size:12px}
+#ld-ot td,#ld-ot th{white-space:nowrap}
 </style>
 </head>
 <body>
@@ -113,7 +115,7 @@ svg{width:100%;height:auto;display:block}
   </div>
   <div class="grid kpis" id="ld-kpi"></div>
   <div class="grid">
-   <div class="card"><h2>จำนวนลูกค้าที่เข้ามา 12 เดือนย้อนหลัง</h2><div id="ld-12"></div></div>
+   <div class="card"><h2 id="ld-12t">จำนวนลูกค้าที่เข้ามา 12 เดือนย้อนหลัง</h2><div id="ld-12"></div></div>
    <div class="card"><h2 id="ld-pt"></h2><div id="ld-pipe"></div></div>
    <div class="card"><h2>ขั้นตอนการปิดการขาย (ตามตัวกรอง)</h2><div id="ld-func"></div></div>
    <div class="card"><h2 id="ld-ott"></h2><div class="scroll"><table id="ld-ot"></table></div></div>
@@ -488,7 +490,7 @@ function renderLd() {
     ['ld-12', 'ld-pipe', 'ld-func', 'ld-in', 'ld-bu'].forEach(id => $(id).innerHTML = '<p class="empty">ไม่มีข้อมูล Lead</p>');
     ['ld-kpi', 'ld-ot', 'ld-intb', 'ld-bub'].forEach(id => $(id).innerHTML = ''); return;
   }
-  const roll = n => { const b = +lastM.slice(0,4) * 12 + (+lastM.slice(5,7) - 1); return Array.from({ length: n }, (_, i) => { const k = b - (n - 1) + i; return Math.floor(k / 12) + '-' + String(k % 12 + 1).padStart(2, '0'); }); };
+  const roll = (n, end = lastM) => { const b = +end.slice(0,4) * 12 + (+end.slice(5,7) - 1); return Array.from({ length: n }, (_, i) => { const k = b - (n - 1) + i; return Math.floor(k / 12) + '-' + String(k % 12 + 1).padStart(2, '0'); }); };
   const cand = yv !== 'all' ? Array.from({ length: 12 }, (_, i) => yv + '-' + String(i + 1).padStart(2, '0')) : mv !== 'all' ? allM : roll(12);
   const months = mv === 'all' ? cand : cand.filter(k => k.slice(5,7) === mv), win = yv === 'all' && mv === 'all' ? ' (12 เดือนล่าสุด)' : '';
   const hasL = new Set(allM), gm = group(base, r => r.date.slice(0,7), () => [], (a, r) => a.push(r)), rowsOf = mk => gm.get(mk) || [];
@@ -497,7 +499,15 @@ function renderLd() {
   $('ld-kpi').innerHTML = [['ลูกค้าที่เข้ามา', fmt(n), '--c1'], ['ซื้อแล้ว', fmt(b), '--c3'], ['ยังไม่ซื้อ / อื่น ๆ', fmt(n - b), '--c2'], ['อัตราปิดการขาย', n ? (b / n * 100).toFixed(1) + '%' : '-', '--c1']]
     .map(([l, x, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${x}</div></div>`).join('');
 
-  lines2('ld-12', [{ name: 'ลูกค้าที่เข้ามา', color: '--c1', pts: roll(12).map(mk => ({ label: mShort(mk), v: hasL.has(mk) ? rowsOf(mk).length : null })) }], v => fmt(v) + ' ราย', fmt);
+  // กราฟ 12 เดือนย้อนหลัง: ขยับตามปี/เดือนที่เลือก (ปลายทางคือเดือนที่เลือก; เลือกแค่ปี = เดือนล่าสุดที่มีข้อมูลของปีนั้น)
+  const anchor = (() => {
+    if (yv !== 'all' && mv !== 'all') return yv + '-' + mv;
+    if (yv !== 'all') { const a = allM.filter(k => k.startsWith(yv)); return a.length ? a[a.length - 1] : yv + '-12'; }
+    if (mv !== 'all') { const a = allM.filter(k => k.slice(5,7) === mv); return a.length ? a[a.length - 1] : lastM; }
+    return lastM;
+  })();
+  $('ld-12t').textContent = 'จำนวนลูกค้าที่เข้ามา 12 เดือนย้อนหลัง (ถึง ' + mShort(anchor) + ')' + who;
+  lines2('ld-12', [{ name: 'ลูกค้าที่เข้ามา', color: '--c1', pts: roll(12, anchor).map(mk => ({ label: mShort(mk), v: hasL.has(mk) ? rowsOf(mk).length : null })) }], v => fmt(v) + ' ราย', fmt);
 
   $('ld-pt').textContent = 'Pipeline การปิดการขาย รายเดือน' + who + win;
   gbars('ld-pipe', months.map(k => mShort(k)), [
@@ -508,11 +518,12 @@ function renderLd() {
     ['ติดตามครั้งที่ 3', scope.filter(r => r.f3).length], ['ซื้อแล้ว', b]].map(([l, v]) => [l, v, n ? (v / n * 100).toFixed(0) + '%' : '']), v => fmt(v) + ' ราย');
 
   $('ld-ott').textContent = 'อัตราปิดการขายของเจ้าหน้าที่แต่ละเดือน: % (ซื้อแล้ว / เข้ามา)' + win;
-  const cell = rs => { const c = rs.length, k = rs.filter(r => r.bought).length; return c ? `${(k / c * 100).toFixed(0)}% (${k}/${c})` : '-'; };
+  const cell = rs => { const c = rs.length, k = rs.filter(r => r.bought).length; return c ? `${(k / c * 100).toFixed(0)}%<span class="n2">(${k}/${c})</span>` : '-'; };
   const prs = (ov === 'all' ? OFFS : [ov]).map(o => ({ o, rs: months.map(mk => rowsOf(mk).filter(r => r.offs.includes(o))) }))
     .sort((a, c) => c.rs.flat().length - a.rs.flat().length);
-  table('ld-ot', ['เจ้าหน้าที่', ...months.map(k => mShort(k)), 'รวม'],
-    [...(ov === 'all' ? [['ทั้งหมด (นับไม่ซ้ำ)', ...months.map(mk => cell(rowsOf(mk))), cell(months.flatMap(rowsOf))]] : []), ...prs.map(q => [q.o, ...q.rs.map(cell), cell(q.rs.flat())])]);
+  const orows = [...(ov === 'all' ? [['ทั้งหมด<span class="n2">(นับไม่ซ้ำ)</span>', ...months.map(mk => cell(rowsOf(mk))), cell(months.flatMap(rowsOf))]] : []), ...prs.map(q => [esc(q.o), ...q.rs.map(cell), cell(q.rs.flat())])];
+  $('ld-ot').innerHTML = '<tr>' + ['เจ้าหน้าที่', ...months.map(k => mShort(k)), 'รวม'].map((h, i) => `<th class="${i ? 'r' : ''}">${esc(h)}</th>`).join('') + '</tr>' +
+    orows.map(r => '<tr>' + r.map((c, i) => `<td class="${i ? 'r' : ''}">${c}</td>`).join('') + '</tr>').join('');
 
   const stack = (cid, tid, ttl, head, keyFn) => {
     const inW = months.flatMap(rowsOf).filter(r => keyFn(r) !== null), pal = ['--c1', '--c2', '--c3', '--c4', '--c5'];
