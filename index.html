@@ -47,12 +47,39 @@ svg{width:100%;height:auto;display:block}
 .bar label{display:flex;align-items:center;gap:6px;color:var(--mute);font-size:13px}
 .n2{display:block;color:var(--mute);font-size:12px}
 #ld-ot td,#ld-ot th{white-space:nowrap}
+#lock{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:50;padding:16px}
+.lockbox{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 24px;text-align:center;width:100%;max-width:340px}
+.lockbox h1{font-size:18px;margin:6px 0 2px}.lockico{font-size:30px}
+.pin{display:flex;gap:10px;justify-content:center;margin:18px 0 8px}
+.pin input{width:52px;height:60px;text-align:center;font:inherit;font-size:24px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:0}
+.pin input:focus{outline:2px solid var(--c1);border-color:transparent}
+.pin.shake{animation:shk .35s}@keyframes shk{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.lockmsg{color:var(--dn);min-height:20px;margin:4px 0 10px;font-size:13px}
+.rem{display:inline-flex;align-items:center;gap:6px;color:var(--mute);font-size:13px;cursor:pointer}
+.lo{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--card);color:var(--mute);border-radius:8px;padding:8px 12px;cursor:pointer}
+body.locked .wrap{display:none}
 </style>
 </head>
 <body>
+<div id="lock" hidden>
+ <div class="lockbox">
+  <div class="lockico">🔒</div>
+  <h1>แดชบอร์ดยอดขาย</h1>
+  <p class="sub">กรอกรหัส 4 หลักเพื่อเข้าดูข้อมูล</p>
+  <div class="pin" id="pin">
+   <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 1">
+   <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 2">
+   <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 3">
+   <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 4">
+  </div>
+  <p class="lockmsg" id="lockmsg"></p>
+  <label class="rem"><input type="checkbox" id="rem"> จำเครื่องนี้</label>
+ </div>
+</div>
 <div class="wrap">
  <div class="head">
   <div><h1>แดชบอร์ดยอดขาย</h1><p class="sub" id="sub">กำลังโหลดข้อมูล…</p></div>
+  <button id="logout" class="lo" hidden>ออกจากระบบ</button>
   <label id="monthWrap">เดือน <select id="month" aria-label="กรองตามเดือน"></select></label>
  </div>
  <nav class="tabs" id="tabs"><button data-t="ov" class="on">ภาพรวม</button><button data-t="prod">สินค้ารายตัว</button><button data-t="ch">ช่องทางขาย</button></nav>
@@ -129,6 +156,7 @@ svg{width:100%;height:auto;display:block}
 /* ===== ตั้งค่า ===== */
 const CFG = {
   appsScriptUrl: 'https://script.google.com/macros/s/AKfycbwQp18kWTL5hlJQFzoFznMylmPP2jpuhscmnilyU4F2GTQ-76T9syKtpSg21tCAVRzC/exec',
+  PIN: '1026',                    // รหัสเข้าหน้าเว็บ 4 หลัก (แก้ตรงนี้) — เป็นแค่การล็อกหน้าเว็บ ไม่ใช่ระบบรักษาความปลอดภัยของข้อมูล
   B2B_CHANNEL: 'line b2b',        // ค่าในคอลัมน์ "ช่องทาง" ที่ถือเป็น B2B (ที่เหลือทั้งหมดเป็น B2C)
   EXCLUDE_CANCELLED: true,        // true = ไม่นับแถวที่มีค่าในคอลัมน์ "ยกเลิกใน shopee"
   COL: { date:'วันที่ซื้อ', order:'เลขที่คำสั่งซื้อ', prod:'รุ่น', qty:'จำนวนขาย', pre:'พรีออเดอร์',
@@ -626,7 +654,40 @@ async function init() {
   document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.t)));
   render();
 }
-init();
+/* ===== ล็อกหน้าเว็บด้วยรหัส 4 หลัก ===== */
+const LS_KEY = 'dash_unlocked';
+const getOK = () => { try { return localStorage.getItem(LS_KEY) === CFG.PIN || sessionStorage.getItem(LS_KEY) === CFG.PIN; } catch (e) { return false; } };
+const setOK = remember => { try { (remember ? localStorage : sessionStorage).setItem(LS_KEY, CFG.PIN); } catch (e) {} };
+const clearOK = () => { try { localStorage.removeItem(LS_KEY); sessionStorage.removeItem(LS_KEY); } catch (e) {} };
+let started = false;
+function unlock() {
+  document.body.classList.remove('locked'); $('lock').hidden = true; $('logout').hidden = false;
+  if (!started) { started = true; init(); }
+}
+function showLock() {
+  document.body.classList.add('locked'); $('lock').hidden = false; $('logout').hidden = true; $('lockmsg').textContent = '';
+  const ins = [...document.querySelectorAll('#pin input')]; ins.forEach(i => i.value = ''); ins[0].focus();
+}
+function setupLock() {
+  const ins = [...document.querySelectorAll('#pin input')];
+  const check = () => {
+    const v = ins.map(i => i.value).join(''); if (v.length < ins.length) return;
+    if (v === CFG.PIN) { setOK($('rem').checked); unlock(); return; }
+    $('lockmsg').textContent = 'รหัสไม่ถูกต้อง'; $('pin').classList.remove('shake'); void $('pin').offsetWidth; $('pin').classList.add('shake');
+    ins.forEach(i => i.value = ''); ins[0].focus();
+  };
+  ins.forEach((inp, i) => {
+    inp.addEventListener('input', () => { inp.value = inp.value.replace(/\D/g, '').slice(-1); if (inp.value && i < ins.length - 1) ins[i + 1].focus(); check(); });
+    inp.addEventListener('keydown', e => { if (e.key === 'Backspace' && !inp.value && i > 0) ins[i - 1].focus(); });
+    inp.addEventListener('paste', e => {
+      const t = ((e.clipboardData && e.clipboardData.getData('text')) || '').replace(/\D/g, '').slice(0, ins.length); if (!t) return;
+      e.preventDefault(); t.split('').forEach((c, k) => ins[k].value = c); ins[Math.min(t.length, ins.length) - 1].focus(); check();
+    });
+  });
+  $('logout').addEventListener('click', () => { clearOK(); showLock(); });
+  getOK() ? unlock() : showLock();
+}
+setupLock();
 </script>
 </body>
 </html>
