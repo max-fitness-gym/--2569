@@ -9,8 +9,8 @@
 :root{--bg:#F3F5F7;--card:#fff;--ink:#16232E;--mute:#6B7A88;--line:#E1E6EB;--c1:#0F6E7A;--c2:#E08A1E;--c3:#5B6CC9;--c4:#B5527A;--c5:#7C8F34;--up:#1E8A52;--dn:#C0392B}
 @media(prefers-color-scheme:dark){:root{--bg:#10181F;--card:#18232C;--ink:#E8EEF2;--mute:#8FA0AE;--line:#27343F;--c1:#3FB6C4;--c2:#F0A442;--c3:#8C9BF0;--c4:#E27FA8;--c5:#A8BF5A;--up:#4CC585;--dn:#EF6F60}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans Thai',system-ui,sans-serif;padding:16px;font-size:14px}
-.wrap{max-width:1200px;margin:0 auto}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans Thai',system-ui,sans-serif;padding:0;font-size:14px}
+.wrap{max-width:1200px;margin:0 auto;padding:16px 20px}
 .head{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:16px}
 h1{font-size:20px;margin:0}.sub{color:var(--mute);font-size:13px;margin:2px 0 0}
 select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);min-width:170px}
@@ -34,9 +34,6 @@ svg{width:100%;height:auto;display:block}
 .lg{display:flex;gap:14px;font-size:12.5px;margin-top:8px;color:var(--mute)}.lg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
 #msg{display:none;background:var(--card);border:1px solid var(--dn);color:var(--dn);padding:10px 12px;border-radius:8px;margin-bottom:12px}
 [hidden]{display:none!important}
-.tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
-.tabs button{font:inherit;border:0;background:none;color:var(--mute);padding:8px 14px;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
-.tabs button.on{color:var(--ink);font-weight:700;border-color:var(--c1)}
 .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 .bar input{flex:1;min-width:220px;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
 .kpis3{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:12px}
@@ -57,10 +54,22 @@ svg{width:100%;height:auto;display:block}
 .lockmsg{color:var(--dn);min-height:20px;margin:4px 0 10px;font-size:13px}
 .rem{display:inline-flex;align-items:center;gap:6px;color:var(--mute);font-size:13px;cursor:pointer}
 .lo{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--card);color:var(--mute);border-radius:8px;padding:8px 12px;cursor:pointer}
-body.locked .wrap{display:none}
+body.locked .app{display:none}
 .bar input[type=number]{flex:none;width:110px;min-width:0}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
-#cht-tb tr.tt td{font-weight:600}
+.app{display:flex;min-height:100vh}
+.side{width:236px;flex:none;background:var(--card);border-right:1px solid var(--line);position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column;padding:18px 12px;z-index:40}
+.brand{font-weight:700;font-size:16px;padding:4px 10px 16px}
+.side nav{display:flex;flex-direction:column;gap:2px;flex:1}
+.side nav button{font:inherit;font-size:14px;text-align:left;border:0;background:none;color:var(--mute);padding:10px 12px;border-radius:8px;cursor:pointer;border-left:3px solid transparent}
+.side nav button:hover{background:var(--bg)}
+.side nav button.on{background:var(--bg);color:var(--ink);font-weight:700;border-left-color:var(--c1)}
+.sidefoot{padding-top:12px}.sidefoot .lo{width:100%}
+.main{flex:1;min-width:0}
+.hl{display:flex;align-items:center;gap:12px}
+.menu-btn{display:none;font:inherit;font-size:20px;line-height:1;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:8px 11px;cursor:pointer}
+.bd{display:none}
+@media(max-width:900px){.side{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);transition:transform .2s;width:260px}.side.open{transform:none;box-shadow:0 0 24px rgba(0,0,0,.25)}.bd.show{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:30}.menu-btn{display:inline-flex}.wrap{padding:12px}}
 </style>
 </head>
 <body>
@@ -79,13 +88,29 @@ body.locked .wrap{display:none}
   <label class="rem"><input type="checkbox" id="rem"> จำเครื่องนี้</label>
  </div>
 </div>
+<div class="app">
+ <aside class="side" id="side">
+  <div class="brand">แดชบอร์ดยอดขาย</div>
+  <nav id="tabs">
+   <button data-t="ov" class="on">ภาพรวม</button>
+   <button data-t="prod">ข้อมูลรายสินค้า</button>
+   <button data-t="ch">ข้อมูลรายช่องทางขาย</button>
+   <button data-t="cat">ข้อมูลตามหมวดสินค้า</button>
+   <button data-t="typ">ข้อมูลตามประเภทสินค้า</button>
+   <button data-t="grp">ข้อมูลตามกลุ่มสินค้า</button>
+   <button data-t="per">ข้อมูลตามช่วงเวลาขาย</button>
+   <button data-t="ld">ข้อมูล Lead ลูกค้า</button>
+   <button data-t="chat">ข้อมูลการตอบแชท</button>
+  </nav>
+  <div class="sidefoot"><button id="logout" class="lo" hidden>ออกจากระบบ</button></div>
+ </aside>
+ <div class="bd" id="bd"></div>
+ <div class="main">
 <div class="wrap">
  <div class="head">
-  <div><h1>แดชบอร์ดยอดขาย</h1><p class="sub" id="sub">กำลังโหลดข้อมูล…</p></div>
-  <button id="logout" class="lo" hidden>ออกจากระบบ</button>
+  <div class="hl"><button id="menuBtn" class="menu-btn" aria-label="เมนู">☰</button><div><h1 id="pgtitle">ภาพรวม</h1><p class="sub" id="sub">กำลังโหลดข้อมูล…</p></div></div>
   <label id="monthWrap">เดือน <select id="month" aria-label="กรองตามเดือน"></select></label>
  </div>
- <nav class="tabs" id="tabs"><button data-t="ov" class="on">ภาพรวม</button><button data-t="prod">สินค้ารายตัว</button><button data-t="ch">ช่องทางขาย</button></nav>
  <div id="msg"></div>
  <section id="v-ov">
 
@@ -155,26 +180,18 @@ body.locked .wrap{display:none}
  </section>
  <section id="v-chat" hidden>
   <div class="bar">
-   <label>เดือนที่ 1 <select id="cht-a"></select></label>
-   <label>เดือนที่ 2 <select id="cht-b"></select></label>
-   <label>จำนวนคนตอบแชท <input id="cht-hc" type="number" min="1" value="3"></label>
-   <label>เกณฑ์แชทต่อคนต่อวัน <input id="cht-th" type="number" min="1" value="25"></label>
-   <label>LINE (แชทต่อวัน) <input id="cht-ln" type="number" min="0" value="0"></label>
-   <label>อื่น ๆ (แชทต่อวัน) <input id="cht-ot" type="number" min="0" value="0"></label>
+   <label>ช่องทาง <select id="cht-ch"><option value="all">ทุกช่องทาง</option><option value="fb">Facebook</option><option value="sp">Shopee</option></select></label>
+   <label>เดือน <select id="cht-m"></select></label>
   </div>
-  <div class="card" style="margin-bottom:12px"><h2>เปรียบเทียบสองเดือน</h2>
-   <p class="sub">แชทเฉลี่ยต่อวัน คิดเฉพาะวันที่มีข้อมูลทั้ง Facebook และ Shopee · LINE และอื่น ๆ มาจากช่องที่กรอกเอง</p>
-   <div class="scroll"><table id="cht-tb"></table></div></div>
-  <div class="grid cmp2" style="margin-bottom:12px">
-   <div class="card"><h2>แชทเฉลี่ยต่อวัน รายเดือน</h2><p class="sub">Facebook และ Shopee</p><div id="cht-1"></div></div>
-   <div class="card"><h2>แชทรายวัน (รวมทุกช่องทาง)</h2><p class="sub">เทียบ 2 เดือนที่เลือก ตามวันที่</p><div id="cht-2"></div></div>
-  </div>
-  <div class="grid cmp2" style="margin-bottom:12px">
-   <div class="card"><h2>แชท Facebook จาก Ads และ Organic</h2><p class="sub">จำนวนแชทรวมต่อเดือน</p><div id="cht-3"></div></div>
-   <div class="card"><h2>เวลาตอบแชท Shopee</h2><p class="sub">เฉลี่ยต่อเดือน หน่วยเป็นนาที</p><div id="cht-4"></div></div>
-  </div>
-  <div class="card"><h2>ยอดขาย Shopee</h2><p class="sub">หน่วยเป็นพันบาทต่อเดือน</p><div id="cht-5"></div></div>
+  <div class="grid kpis" id="cht-kpi"></div>
+  <div class="card" style="margin-bottom:12px"><h2 id="cht-dt"></h2><div id="cht-d"></div></div>
+  <div class="card" id="cht-bcard" style="margin-bottom:12px"><h2>สรุปแชทของเดือน แยกตามช่องทาง</h2>
+   <p class="sub">สูงสุด/ต่ำสุด/เฉลี่ยต่อวัน · MoM เทียบเดือนก่อน · YoY เทียบเดือนเดียวกันของปีก่อน (เทียบจากค่าเฉลี่ยต่อวัน) · รวม = เฉพาะวันที่มีข้อมูลครบทั้ง 2 ช่องทาง</p>
+   <div class="scroll"><table id="cht-bt"></table></div></div>
+  <div class="card"><h2 id="cht-aot"></h2><p class="sub" id="cht-aos"></p><div id="cht-ao"></div></div>
  </section>
+</div>
+ </div>
 </div>
 
 <script>
@@ -193,6 +210,7 @@ let ROWS = [], LEADS = [], OFFS = [], CHAT = { shopee: [], fb: [] }, chMonths = 
 // แท็บหมวด/ประเภท/กลุ่มสินค้า (col = ชื่อหัวคอลัมน์ใน Sheet; ถ้าหัวคอลัมน์มีข้อความต่อท้าย เช่น "- เพิ่มใหม่" ก็อ่านได้)
 const CATS = [ { k:'cat', tab:'หมวดสินค้า', col:'หมวดสินค้า' }, { k:'typ', tab:'ประเภทสินค้า', col:'ประเภทสินค้า' }, { k:'grp', tab:'กลุ่มสินค้า', col:'กลุ่มสินค้า' } ];
 const TABS = ['ov', 'prod', 'ch', ...CATS.map(c => c.k), 'per', 'ld', 'chat'];
+const TITLES = { ov: 'ภาพรวม', prod: 'ข้อมูลรายสินค้า', ch: 'ข้อมูลรายช่องทางขาย', cat: 'ข้อมูลตามหมวดสินค้า', typ: 'ข้อมูลตามประเภทสินค้า', grp: 'ข้อมูลตามกลุ่มสินค้า', per: 'ข้อมูลตามช่วงเวลาขาย', ld: 'ข้อมูล Lead ลูกค้า', chat: 'ข้อมูลการตอบแชท' };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const num = v => Number(String(v ?? '').replace(/[,฿\s]/g, '')) || 0;
@@ -407,7 +425,7 @@ function lines2(id, series, fa, fl, o = {}) {
   series.forEach(sr => { const ok = sr.pts.filter(q => q.v !== null);
     if (ok.length) { const hi = ok.reduce((a, b) => b.v > a.v ? b : a), lo = ok.reduce((a, b) => b.v < a.v ? b : a);
       note += `<p class="sub"><i class="sw" style="background:var(${sr.color})"></i> ${series.length > 1 ? '<b>' + esc(sr.name) + '</b>: ' : ''}${ok.length > 1 ? `สูงสุด ${esc(hi.label)} (${fa(hi.v)}) · ต่ำสุด ${esc(lo.label)} (${fa(lo.v)})` : `มีข้อมูล 1 เดือน (${esc(ok[0].label)})`}</p>`; } });
-  $(id).innerHTML = s + '</svg>' + note;
+  $(id).innerHTML = s + '</svg>' + (o.nonote ? '' : note);
 }
 
 function renderCat(k) {
@@ -519,7 +537,7 @@ function leadDate(raw, dayNo) {
 }
 const splitOff = v => { const a = String(v ?? '').split(/\s*[+&,\-–]\s*/).map(x => x.trim()).filter(Boolean); return a.length ? a : ['ไม่ระบุ']; };
 
-function sbars(id, cats, series) {
+function sbars(id, cats, series, o = {}) {
   const tot = cats.map((_, i) => series.reduce((a, sr) => a + (sr.vals[i] || 0), 0)), mxv = Math.max(...tot, 0);
   if (!mxv) { $(id).innerHTML = '<p class="empty">ไม่มีข้อมูล</p>'; return; }
   const W = Math.max(300, $(id).clientWidth || 640), H = W < 500 ? 230 : 300, p = { l:44, r:10, t:22, b:28 };
@@ -529,7 +547,7 @@ function sbars(id, cats, series) {
   cats.forEach((c, i) => { const bx = p.l + i * gw + (gw - bw) / 2; let acc = 0;
     s += `<text x="${p.l + (i + .5) * gw}" y="${H-10}" text-anchor="middle" font-size="11" fill="var(--mute)">${esc(gw < 44 ? c.split(' ')[0] : c)}</text>`;
     series.forEach(sr => { const v = sr.vals[i] || 0; if (!v) return; s += `<rect x="${bx}" y="${y(acc + v)}" width="${bw}" height="${y(acc) - y(acc + v)}" fill="var(${sr.color})"/>`; acc += v; });
-    if (acc) s += `<text x="${bx + bw / 2}" y="${y(acc) - 4}" text-anchor="middle" font-size="10.5" fill="var(--ink)">${fmt(acc)}</text>`; });
+    if (acc && !o.nolabel) s += `<text x="${bx + bw / 2}" y="${y(acc) - 4}" text-anchor="middle" font-size="10.5" fill="var(--ink)">${fmt(acc)}</text>`; });
   $(id).innerHTML = s + '</svg><div class="lg">' + series.map(sr => `<span><i style="background:var(${sr.color})"></i>${esc(sr.name)}</span>`).join('') + '</div>';
 }
 
@@ -592,51 +610,79 @@ function renderLd() {
   stack('ld-bu', 'ld-bub', 'ld-but', 'ช่องทางที่ซื้อ', r => r.buy || null);
 }
 
-/* ===== แท็บแชท (Shopee + Facebook) ===== */
-const chAvg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0, chR1 = x => Math.round(x * 10) / 10;
-function chStat(m) {
-  const fb = Object.fromEntries(CHAT.fb.filter(x => x.d.slice(0,7) === m).map(x => [x.d, x.total]));
-  const sp = Object.fromEntries(CHAT.shopee.filter(x => x.d.slice(0,7) === m).map(x => [x.d, x.chats]));
-  const days = Object.keys(fb).filter(d => d in sp).sort();
-  const ln = +$('cht-ln').value || 0, ot = +$('cht-ot').value || 0, hc = Math.max(1, +$('cht-hc').value || 1);
-  const f = chAvg(days.map(d => fb[d])), s = chAvg(days.map(d => sp[d])), t = f + s + ln + ot;
-  const tot = days.map(d => fb[d] + sp[d] + ln + ot), pk = tot.length ? Math.max(...tot) : 0;
-  return { m, days, f, s, ln, ot, t, pk, pkd: tot.length ? days[tot.indexOf(pk)].slice(8) + '/' + days[0].slice(5,7) : '-',
-    rt: chAvg(CHAT.shopee.filter(x => x.d.slice(0,7) === m).map(x => x.avgT)), pp: t / hc,
-    daily: Object.fromEntries(days.map(d => [+d.slice(8), fb[d] + sp[d] + ln + ot])) };
+/* ===== หน้าข้อมูลการตอบแชท (Shopee + Facebook) ===== */
+const chR1 = x => Math.round(x * 10) / 10;
+const chPrev = m => { const k = +m.slice(0,4) * 12 + (+m.slice(5,7) - 2); return Math.floor(k / 12) + '-' + String(k % 12 + 1).padStart(2, '0'); };
+const chYoY = m => (+m.slice(0,4) - 1) + m.slice(4);
+const chRows = (rows, m) => rows.filter(x => x.d.slice(0,7) === m);
+const chChg = (cur, ref) => ref ? pctH(cur, ref) : '<span style="color:var(--mute)">-</span>';
+function chDays(m, ch) {   // แชทรายวันของเดือน m ตามช่องทาง (รวม = เฉพาะวันที่มีทั้ง Facebook และ Shopee)
+  const fb = chRows(CHAT.fb, m), sp = chRows(CHAT.shopee, m);
+  if (ch === 'fb') return fb.map(x => ({ d: x.d, v: x.total }));
+  if (ch === 'sp') return sp.map(x => ({ d: x.d, v: x.chats }));
+  const spm = new Map(sp.map(x => [x.d, x.chats]));
+  return fb.filter(x => spm.has(x.d)).map(x => ({ d: x.d, v: x.total + spm.get(x.d) }));
+}
+function chSum(days) {
+  if (!days.length) return null;
+  const vs = days.map(x => x.v), mx = Math.max(...vs), mn = Math.min(...vs), tot = vs.reduce((a, b) => a + b, 0);
+  return { n: days.length, avg: tot / days.length, tot, max: mx, maxD: days[vs.indexOf(mx)].d, min: mn, minD: days[vs.indexOf(mn)].d };
 }
 function renderChat() {
-  const ids = ['cht-1', 'cht-2', 'cht-3', 'cht-4', 'cht-5'];
-  $('sub').textContent = 'แชท · Shopee ถึง ' + (CHAT.shopee.length ? CHAT.shopee[CHAT.shopee.length - 1].d : '-') + ' · Facebook ถึง ' + (CHAT.fb.length ? CHAT.fb[CHAT.fb.length - 1].d : '-');
+  const last = a => a.length ? a[a.length - 1].d : '-';
+  $('sub').textContent = 'Shopee ถึง ' + last(CHAT.shopee) + ' · Facebook ถึง ' + last(CHAT.fb);
   if (!chMonths.length) {
-    $('cht-tb').innerHTML = '<tr><td class="empty">ไม่พบข้อมูลแชท (ตรวจชื่อแท็บ "DATA แชท Shopee" และ "Data แชท Facebook" ใน Sheet)</td></tr>';
-    ids.forEach(id => $(id).innerHTML = '<p class="empty">ไม่มีข้อมูล</p>'); return;
+    $('cht-kpi').innerHTML = ''; $('cht-bt').innerHTML = ''; $('cht-ao').innerHTML = '';
+    $('cht-d').innerHTML = '<p class="empty">ไม่พบข้อมูลแชท (ตรวจชื่อแท็บ "DATA แชท Shopee" และ "Data แชท Facebook" ใน Sheet)</p>'; return;
   }
-  const a = chStat($('cht-a').value), b = chStat($('cht-b').value), th = +$('cht-th').value || 1;
-  const dot = c => `<span class="dot" style="background:var(${c})"></span>`, mu = x => x || '<span style="color:var(--mute)">ไม่มีข้อมูล</span>';
-  const st = x => x.pp <= th ? '<span class="up"><b>เหมาะสม</b></span>' : '<span class="dn"><b>หนักเกินเกณฑ์</b></span>';
-  const row = (n, x, y, cls) => `<tr${cls ? ` class="${cls}"` : ''}><td>${n}</td><td class="r">${x}</td><td class="r">${y}</td></tr>`;
-  $('cht-tb').innerHTML = `<tr><th></th><th class="r">${mShort(a.m)}</th><th class="r">${mShort(b.m)}</th></tr>`
-    + row(dot('--c3') + 'Facebook', chR1(a.f), chR1(b.f)) + row(dot('--c2') + 'Shopee', chR1(a.s), chR1(b.s))
-    + row('LINE (กรอกเอง)', mu(a.ln), mu(b.ln)) + row('อื่น ๆ (กรอกเอง)', mu(a.ot), mu(b.ot))
-    + row('รวมต่อวัน', chR1(a.t), chR1(b.t), 'tt') + row('วันที่แชทสูงสุด', `${a.pk} (${a.pkd})`, `${b.pk} (${b.pkd})`)
-    + row('เวลาตอบเฉลี่ย Shopee (นาที)', Math.round(a.rt), Math.round(b.rt))
-    + row(`แชทต่อคนต่อวัน (${$('cht-hc').value} คน)`, chR1(a.pp), chR1(b.pp)) + row(`เทียบเกณฑ์ ${th} แชทต่อคน`, st(a), st(b))
-    + row('จำนวนวันที่ใช้คำนวณ', a.days.length, b.days.length);
+  const ch = $('cht-ch').value, m = $('cht-m').value, name = { all: 'ทุกช่องทาง', fb: 'Facebook', sp: 'Shopee' }[ch];
+  const cur = chSum(chDays(m, ch)), mom = chSum(chDays(chPrev(m), ch)), yoy = chSum(chDays(chYoY(m), ch));
 
-  const L = chMonths.map(k => mShort(k)), monthly = (rows, key, f = chAvg) => chMonths.map(m => { const r = rows.filter(x => x.d.slice(0,7) === m); return r.length ? f(r.map(x => x[key])) : null; });
-  const sum = a => a.reduce((x, y) => x + y, 0);
-  sbars('cht-1', L, [{ name: 'Facebook', color: '--c3', vals: monthly(CHAT.fb, 'total').map(v => v === null ? 0 : chR1(v)) }, { name: 'Shopee', color: '--c2', vals: monthly(CHAT.shopee, 'chats').map(v => v === null ? 0 : chR1(v)) }]);
-  const days = Array.from({ length: 31 }, (_, i) => i + 1), narrow = ($('cht-2').clientWidth || 640) < 500;
-  lines2('cht-2', [{ name: mShort(a.m), color: '--c1', pts: days.map(d => ({ label: String(d), v: a.daily[d] ?? null })) },
-    { name: mShort(b.m), color: '--c2', pts: days.map(d => ({ label: String(d), v: b.daily[d] ?? null })) }], v => fmt(v) + ' แชท', fmt, { step: narrow ? 5 : 3, nov: true, r: 2.5 });
-  sbars('cht-3', L, [{ name: 'Ads', color: '--c3', vals: monthly(CHAT.fb, 'ads', sum).map(v => v || 0) }, { name: 'Organic', color: '--c5', vals: monthly(CHAT.fb, 'org', sum).map(v => v || 0) }]);
-  lines2('cht-4', [{ name: 'ตอบเฉลี่ย', color: '--c1', pts: monthly(CHAT.shopee, 'avgT').map((v, i) => ({ label: L[i], v: v === null ? null : chR1(v) })) },
-    { name: 'ตอบครั้งแรก', color: '--c2', pts: monthly(CHAT.shopee, 'firstT').map((v, i) => ({ label: L[i], v: v === null ? null : chR1(v) })) }], v => chR1(v) + ' นาที', v => chR1(v));
-  gbars('cht-5', L, [{ name: 'ยอดขาย Shopee (พันบาท)', color: '--c2', vals: monthly(CHAT.shopee, 'sales', a2 => Math.round(sum(a2) / 1000)) }], fmt);
+  $('cht-kpi').innerHTML = cur ? [
+    ['เฉลี่ยต่อวัน', chR1(cur.avg), `MoM ${chChg(cur.avg, mom && mom.avg)}<br>YoY ${chChg(cur.avg, yoy && yoy.avg)}`, '--c1'],
+    ['สูงสุด (Max)', fmt(cur.max), dayName(cur.maxD), '--c2'],
+    ['ต่ำสุด (Min)', fmt(cur.min), dayName(cur.minD), '--c3'],
+    ['รวมทั้งเดือน', fmt(cur.tot), cur.n + ' วันที่มีข้อมูล', '--c1']]
+    .map(([l, v, d, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join('')
+    : '<div class="card"><p class="empty">ไม่มีข้อมูลแชทในเดือนนี้</p></div>';
+
+  // กราฟแชทรายวัน (เส้นแยกตามช่องทาง)
+  const dim = new Date(+m.slice(0,4), +m.slice(5,7), 0).getDate(), fbR = chRows(CHAT.fb, m), spR = chRows(CHAT.shopee, m);
+  const day = (rows, key) => { const g = new Map(rows.map(x => [+x.d.slice(8), x[key]])); return Array.from({ length: dim }, (_, i) => ({ label: String(i + 1), v: g.has(i + 1) ? g.get(i + 1) : null })); };
+  const series = []; if (ch !== 'sp') series.push({ name: 'Facebook', color: '--c3', pts: day(fbR, 'total') }); if (ch !== 'fb') series.push({ name: 'Shopee', color: '--c2', pts: day(spR, 'chats') });
+  $('cht-dt').textContent = `แชทรายวัน · ${name} · ${monthName(m)}`;
+  lines2('cht-d', series, v => fmt(v) + ' แชท', fmt, { step: ($('cht-d').clientWidth || 640) < 500 ? 5 : 3, nov: true, r: 2.5, nonote: true });
+  if (cur) $('cht-d').insertAdjacentHTML('beforeend', '<div class="lg">' + series.map(sr => `<span><i style="background:var(${sr.color})"></i>${sr.name}</span>`).join('') + '</div>');
+
+  // ตารางสรุปแยกช่องทาง (เมื่อเลือกทุกช่องทาง)
+  $('cht-bcard').hidden = ch !== 'all';
+  if (ch === 'all') {
+    const rowOf = (label, k) => { const c = chSum(chDays(m, k)), p = chSum(chDays(chPrev(m), k)), y = chSum(chDays(chYoY(m), k));
+      return c ? [label, chR1(c.avg), `${fmt(c.max)}<span class="n2">${dayName(c.maxD)}</span>`, `${fmt(c.min)}<span class="n2">${dayName(c.minD)}</span>`, fmt(c.tot), chChg(c.avg, p && p.avg), chChg(c.avg, y && y.avg)] : [label, '-', '-', '-', '-', '-', '-']; };
+    $('cht-bt').innerHTML = '<tr>' + ['ช่องทาง', 'เฉลี่ย/วัน', 'สูงสุด', 'ต่ำสุด', 'รวม', 'MoM', 'YoY'].map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
+      [rowOf('Facebook', 'fb'), rowOf('Shopee', 'sp'), rowOf('รวม', 'all')].map(r => '<tr>' + r.map((c, i) => `<td class="${i ? 'r' : ''}">${c}</td>`).join('') + '</tr>').join('');
+  }
+
+  // กราฟแยก Ads / Organic (เฉพาะช่องทางที่มีข้อมูลนี้ ตอนนี้คือ Facebook)
+  $('cht-aot').textContent = 'แชท Ads และ Organic · Facebook · ' + monthName(m);
+  if (ch === 'sp') { $('cht-aos').textContent = ''; $('cht-ao').innerHTML = '<p class="empty">Shopee ไม่มีข้อมูลแยก Ads / Organic</p>'; }
+  else if (!fbR.length) { $('cht-aos').textContent = ''; $('cht-ao').innerHTML = '<p class="empty">ไม่มีข้อมูล Facebook ในเดือนนี้</p>'; }
+  else {
+    const g = new Map(fbR.map(x => [+x.d.slice(8), x])), cats = Array.from({ length: dim }, (_, i) => String(i + 1));
+    const ads = fbR.reduce((a, x) => a + x.ads, 0), org = fbR.reduce((a, x) => a + x.org, 0), t = ads + org || 1;
+    $('cht-aos').textContent = `รวมเดือนนี้ Ads ${fmt(ads)} (${(ads / t * 100).toFixed(0)}%) · Organic ${fmt(org)} (${(org / t * 100).toFixed(0)}%)`;
+    sbars('cht-ao', cats, [{ name: 'Ads', color: '--c3', vals: cats.map((_, i) => g.has(i + 1) ? g.get(i + 1).ads : 0) }, { name: 'Organic', color: '--c5', vals: cats.map((_, i) => g.has(i + 1) ? g.get(i + 1).org : 0) }], { nolabel: true });
+  }
+}
+
+function closeMenu() { $('side').classList.remove('open'); $('bd').classList.remove('show'); }
+function setupMenu() {
+  $('menuBtn').addEventListener('click', () => { $('side').classList.toggle('open'); $('bd').classList.toggle('show'); });
+  $('bd').addEventListener('click', closeMenu);
 }
 
 function showTab(t) {
+  $('pgtitle').textContent = TITLES[t]; closeMenu();
   TABS.forEach(k => $('v-' + k).hidden = k !== t);
   $('monthWrap').style.display = t === 'ov' ? '' : 'none';
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
@@ -704,7 +750,6 @@ async function init() {
   <div class="card" style="margin-bottom:12px"><h2 id="${c.k}-ctitle"></h2><div id="${c.k}-month"></div></div>
   <div class="grid" id="${c.k}-tops"></div>
  </section>`).join(''));
-  $('tabs').insertAdjacentHTML('beforeend', CATS.map(c => `<button data-t="${c.k}">${c.tab}</button>`).join('') + '<button data-t="per">ช่วงเวลา</button><button data-t="ld">Lead ลูกค้า</button><button data-t="chat">แชท</button>');
   CATS.forEach(c => {
     const m = group(ROWS, r => r[c.k] || '(ไม่ระบุ)', () => ({ v:0 }), (a, r) => a.v += r.net);
     const opts = `<option value="all">ทุก${c.tab}</option>` + [...m].sort((a, b) => b[1].v - a[1].v).map(([k]) => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
@@ -722,10 +767,10 @@ async function init() {
   $('ld-o').innerHTML = '<option value="all">ทุกคน</option>' + OFFS.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
   ['ld-y', 'ld-m', 'ld-o'].forEach(id => { $(id).value = 'all'; $(id).addEventListener('change', renderLd); });
   chMonths = [...new Set(CHAT.fb.map(x => x.d.slice(0,7)).concat(CHAT.shopee.map(x => x.d.slice(0,7))))].sort();
-  const chOpt = chMonths.map(m => `<option value="${m}">${mShort(m)}</option>`).join('');
-  $('cht-a').innerHTML = chOpt; $('cht-b').innerHTML = chOpt;
-  if (chMonths.length) { $('cht-b').value = chMonths[chMonths.length - 1]; $('cht-a').value = chMonths[Math.max(0, chMonths.length - 2)]; }
-  ['cht-a', 'cht-b', 'cht-hc', 'cht-th', 'cht-ln', 'cht-ot'].forEach(id => $(id).addEventListener('input', renderChat));
+  $('cht-m').innerHTML = chMonths.map(m => `<option value="${m}">${monthName(m)}</option>`).join('');
+  if (chMonths.length) $('cht-m').value = chMonths[chMonths.length - 1];
+  $('cht-ch').value = 'all';
+  ['cht-ch', 'cht-m'].forEach(id => $(id).addEventListener('change', renderChat));
   $('chSel').addEventListener('change', renderCh);
   document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.t)));
   render();
@@ -763,6 +808,7 @@ function setupLock() {
   $('logout').addEventListener('click', () => { clearOK(); showLock(); });
   getOK() ? unlock() : showLock();
 }
+setupMenu();
 setupLock();
 </script>
 </body>
