@@ -139,7 +139,7 @@ body.locked .app{display:none}
  </section>
 
  <section id="v-prod" hidden>
-  <div class="bar"><input id="prodSel" list="prods" placeholder="🔍 พิมพ์ค้นหารุ่นสินค้า (เว้นว่าง = ทุกสินค้า)" autocomplete="off"><datalist id="prods"></datalist><span class="sub" id="prodInfo"></span></div>
+  <div class="bar"><input id="prodSel" list="prods" placeholder="🔍 พิมพ์ค้นหารุ่นสินค้า (เว้นว่าง = ทุกสินค้า)" autocomplete="off"><datalist id="prods"></datalist><label>เดือน <select id="p-mon"></select></label><span class="sub" id="prodInfo"></span></div>
   <div class="grid kpis3" id="p-kpi"></div>
   <div class="grid">
    <div class="card"><h2>จำนวนชิ้นที่ขาย รายเดือน (ทั้งปี)</h2><div id="p-month"></div></div>
@@ -148,7 +148,7 @@ body.locked .app{display:none}
  </section>
 
  <section id="v-ch" hidden>
-  <div class="bar"><select id="chSel" aria-label="เลือกช่องทาง"></select></div>
+  <div class="bar"><select id="chSel" aria-label="เลือกช่องทาง"></select><label>เดือน <select id="c-mon"></select></label></div>
   <div class="grid kpis3" id="c-kpi"></div>
   <div class="card" style="margin-bottom:12px"><h2>ยอดขาย (บาท) รายเดือน (ทั้งปี)</h2><div id="c-month"></div></div>
   <div class="card"><h2>จังหวัดที่ซื้อบ่อย (เรียงตามจำนวนออเดอร์) แสดงยอดสุทธิ</h2><div id="c-prov"></div></div>
@@ -206,7 +206,7 @@ const CFG = {
 };
 /* ================== */
 
-let ROWS = [], LEADS = [], OFFS = [], CHAT = { shopee: [], fb: [] }, chMonths = [];
+let ROWS = [], LEADS = [], OFFS = [], CHAT = { shopee: [], fb: [] }, chMonths = [], DBRNG = {}, LDRNG = {};
 // แท็บหมวด/ประเภท/กลุ่มสินค้า (col = ชื่อหัวคอลัมน์ใน Sheet; ถ้าหัวคอลัมน์มีข้อความต่อท้าย เช่น "- เพิ่มใหม่" ก็อ่านได้)
 const CATS = [ { k:'cat', tab:'หมวดสินค้า', col:'หมวดสินค้า' }, { k:'typ', tab:'ประเภทสินค้า', col:'ประเภทสินค้า' }, { k:'grp', tab:'กลุ่มสินค้า', col:'กลุ่มสินค้า' } ];
 const TABS = ['ov', 'prod', 'ch', ...CATS.map(c => c.k), 'per', 'ld', 'chat'];
@@ -249,22 +249,9 @@ function calc(sel) {
     aov: n ? sum(() => true) / n : 0 };
 }
 
-function delta(id, cur, prev, sel, pre) {
-  const el = $(id), p0 = pre ? pre + ' · ' : '';
-  if (sel === 'all') { el.className = 'd'; el.textContent = p0 + 'ทุกเดือนรวมกัน'; return; }
-  if (!prev) { el.className = 'd'; el.textContent = p0 + 'ไม่มีข้อมูลเดือนก่อน'; return; }
-  const p = (cur - prev) / prev * 100;
-  el.className = 'd';
-  el.innerHTML = esc(p0) + `<span class="${p >= 0 ? 'up' : 'dn'}">${p >= 0 ? '▲ ' : '▼ '}${Math.abs(p).toFixed(1)}% จากเดือนก่อน</span>`;
-}
 
 const pctH = (cur, prev) => { if (!prev) return ''; const p = (cur - prev) / prev * 100, a = Math.abs(p);
   return `<span class="${p >= 0 ? 'up' : 'dn'}">${p >= 0 ? '▲' : '▼'} ${a >= 100 ? a.toFixed(0) : a.toFixed(1)}%</span>`; };
-function segCard(id, n, v, pn, pvv, sel) {
-  const el = $(id); el.className = 'd';
-  if (sel === 'all' || pn === undefined) { el.textContent = 'ยอดสุทธิ ' + money(v) + (sel === 'all' ? ' · ทุกเดือนรวมกัน' : ''); return; }
-  el.innerHTML = `ยอดสุทธิ ${money(v)} ${pctH(v, pvv)}<br>ออเดอร์ ${pctH(n, pn)} เทียบเดือนก่อน`;
-}
 
 function table(id, heads, rows) {
   $(id).innerHTML = '<tr>' + heads.map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
@@ -294,12 +281,18 @@ function barChart(items) {
 }
 
 function render() {
-  const sel = $('month').value, c = calc(sel), pv = sel === 'all' ? null : calc(prevKey(sel));
-  $('k-so').textContent = money(c.so);   delta('d-so',  c.so,   pv && pv.so,   sel);
-  $('k-fo').textContent = money(c.fo);   delta('d-fo',  c.fo,   pv && pv.fo,   sel);
-  $('k-b2c').textContent = fmt(c.b2cN);  segCard('d-b2c', c.b2cN, c.b2cV, pv ? pv.b2cN : undefined, pv ? pv.b2cV : undefined, sel);
-  $('k-b2b').textContent = fmt(c.b2bN);  segCard('d-b2b', c.b2bN, c.b2bV, pv ? pv.b2bN : undefined, pv ? pv.b2bV : undefined, sel);
-  $('k-aov').textContent = '฿' + fmt(c.aov); delta('d-aov', c.aov, pv && pv.aov, sel);
+  const sel = $('month').value, c = calc(sel);
+  const dn = (id, valOf) => { const el = $(id); el.className = 'd'; if (sel === 'all') { el.textContent = 'ทุกเดือนรวมกัน'; return; } el.innerHTML = cmpHtml(cmpM(sel, valOf, DBRNG)); };
+  const dseg = (id, nOf, vOf) => { const el = $(id); el.className = 'd';
+    if (sel === 'all') { el.textContent = 'ยอดสุทธิ ' + moneyS(vOf('all')) + ' · ทุกเดือนรวมกัน'; return; }
+    const cn = cmpM(sel, nOf, DBRNG), cv = cmpM(sel, vOf, DBRNG);
+    el.innerHTML = cn.note ? `<div style="color:var(--mute)">${cn.note}</div><div>ยอดสุทธิ ${moneyS(vOf(sel))}</div>`
+      : `<div>ออเดอร์ MoM ${cn.mom || '-'}</div>` + (cn.yoy ? `<div>ออเดอร์ YoY ${cn.yoy}</div>` : '') + `<div>ยอดสุทธิ ${moneyS(vOf(sel))} MoM ${cv.mom || '-'}</div>`; };
+  $('k-so').textContent = money(c.so);        dn('d-so', m => calc(m).so);
+  $('k-fo').textContent = money(c.fo);        dn('d-fo', m => calc(m).fo);
+  $('k-b2c').textContent = fmt(c.b2cN);       dseg('d-b2c', m => calc(m).b2cN, m => calc(m).b2cV);
+  $('k-b2b').textContent = fmt(c.b2bN);       dseg('d-b2b', m => calc(m).b2bN, m => calc(m).b2bV);
+  $('k-aov').textContent = '฿' + fmt(c.aov);  dn('d-aov', m => calc(m).aov);
 
   const byDay = group(c.o, r => r.date, () => ({ a:0, b:0 }), (a, r) => { a.a += r.price; a.b += r.net; });
   let pts;
@@ -341,11 +334,33 @@ function byMonth(rows, ms) {
   const has = new Set(ROWS.map(r => r.date.slice(0,7)));   // เดือนที่มีข้อมูลในชีต (ไม่นับเดือนที่ยังไม่มีข้อมูล)
   return ms.map(k => ({ label: mShort(k), has: has.has(k), q: (g.get(k) || { q:0 }).q, v: (g.get(k) || { v:0 }).v }));
 }
-function kpis3(id, rows) {
-  const q = rows.reduce((a, r) => a + r.qty, 0), v = rows.reduce((a, r) => a + r.net, 0), o = new Set(rows.map(r => r.order)).size;
-  $(id).innerHTML = [['จำนวนชิ้นที่ขาย', fmt(q), '--c1'], ['ยอดสุทธิ', money(v), '--c3'], ['จำนวนออเดอร์', fmt(o), '--c2']]
-    .map(([l, x, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${x}</div></div>`).join('');
+/* ===== MoM / YoY: แสดงเฉพาะเดือนที่ข้อมูลครบ และ YoY แสดงเฉพาะที่มีข้อมูลปีก่อน ===== */
+const rangeOf = ds => { let mn = '', mx = ''; ds.forEach(d => { if (!d) return; if (!mn || d < mn) mn = d; if (d > mx) mx = d; }); return { min: mn, max: mx }; };
+const moneyS = v => v >= 1e6 ? '฿' + (v / 1e6).toFixed(2) + 'M' : '฿' + fmt(v);
+const mDim = mk => new Date(+mk.slice(0,4), +mk.slice(5,7), 0).getDate();
+const mPrev = m => { const k = +m.slice(0,4) * 12 + (+m.slice(5,7) - 2); return Math.floor(k / 12) + '-' + String(k % 12 + 1).padStart(2, '0'); };
+const mYoY = m => (+m.slice(0,4) - 1) + m.slice(4);
+function monthDone(mk, rng) {   // เดือนนี้มีข้อมูลครบทั้งเดือนหรือไม่ (ดูจากช่วงวันที่ของข้อมูล)
+  if (!rng || !rng.min) return false;
+  const minM = rng.min.slice(0,7), maxM = rng.max.slice(0,7);
+  if (mk < minM || mk > maxM) return false;
+  if (mk === minM && +rng.min.slice(8,10) > 3) return false;
+  if (mk === maxM && +rng.max.slice(8,10) < mDim(mk) - 2) return false;
+  return true;
 }
+function cmpM(mk, valOf, rng, delta = pctH) {   // -> { note, mom, yoy } (HTML; ว่าง = ไม่มีข้อมูลให้เทียบ)
+  if (!monthDone(mk, rng)) return { note: 'ข้อมูลไม่ครบเดือน', mom: '', yoy: '' };
+  const cur = valOf(mk), one = ref => monthDone(ref, rng) ? valOf(ref) : null, p = one(mPrev(mk)), y = one(mYoY(mk));
+  return { note: '', mom: p == null ? '' : delta(cur, p), yoy: y == null ? '' : delta(cur, y) };
+}
+const cmpHtml = x => x.note ? `<div style="color:var(--mute)">${x.note}</div>` : `<div>MoM ${x.mom || '-'}</div>` + (x.yoy ? `<div>YoY ${x.yoy}</div>` : '');
+function kpiHtml(rows, mk, rowsOf) {   // การ์ด 3 ใบ (ชิ้น/ยอดสุทธิ/ออเดอร์) + MoM/YoY เมื่อเลือกเดือน
+  const stat = rs => ({ q: rs.reduce((a, r) => a + r.qty, 0), v: rs.reduce((a, r) => a + r.net, 0), o: new Set(rs.map(r => r.order)).size });
+  const c = stat(rows), cache = {}, S = m => cache[m] || (cache[m] = stat(rowsOf(m)));
+  return [['จำนวนชิ้นที่ขาย', 'q', fmt, '--c1'], ['ยอดสุทธิ', 'v', money, '--c3'], ['จำนวนออเดอร์', 'o', fmt, '--c2']].map(([l, k, f, col]) =>
+    `<div class="card kpi" style="--a:var(${col})"><div class="l">${l}</div><div class="v">${f(c[k])}</div><div class="d">${mk === 'all' ? '' : cmpHtml(cmpM(mk, m => S(m)[k], DBRNG))}</div></div>`).join('');
+}
+function kpis3(id, rows, mk, rowsOf) { $(id).innerHTML = kpiHtml(rows, mk || 'all', rowsOf); }
 function combo(id, pts, hasLine, fa, fl) {
   fl = fl || short;
   const ok = pts.filter(q => q.a !== null);
@@ -385,24 +400,22 @@ function renderProd() {
   const ms = monthsList(), q = norm($('prodSel').value), inMs = ROWS.filter(r => ms.includes(r.date.slice(0,7)));
   const rows = q ? inMs.filter(r => norm(r.prod).includes(q)) : inMs, found = new Set(rows.map(r => r.prod)).size;
   $('prodInfo').textContent = q ? `พบ ${found} รุ่นที่ตรงกับคำค้น` : `ทุกสินค้า (${found} รุ่น)`;
-  kpis3('p-kpi', rows);
+  const mon = $('p-mon').value, pred = r => !q || norm(r.prod).includes(q), rowsM = mon === 'all' ? rows : rows.filter(r => r.date.startsWith(mon));
+  kpis3('p-kpi', rowsM, mon, m => ROWS.filter(r => r.date.startsWith(m) && pred(r)));
   combo('p-month', byMonth(rows, ms).map(x => ({ label: x.label, a: x.has ? x.q : null })), false, v => fmt(v) + ' ชิ้น', fmt);
-  hbar('p-prov', [...group(rows, r => r.prov || 'ไม่ระบุ', () => ({ q:0 }), (a, r) => a.q += r.qty)]
+  hbar('p-prov', [...group(rowsM, r => r.prov || 'ไม่ระบุ', () => ({ q:0 }), (a, r) => a.q += r.qty)]
     .sort((a, b) => b[1].q - a[1].q).slice(0, 10).map(([k, a]) => [k, a.q]), v => fmt(v) + ' ชิ้น');
 }
 function renderCh() {
   const ms = monthsList(), c = $('chSel').value, inMs = ROWS.filter(r => ms.includes(r.date.slice(0,7)));
   const rows = c === 'all' ? inMs : inMs.filter(r => r.ch === c);
-  kpis3('c-kpi', rows);
+  const mon = $('c-mon').value, pred = r => c === 'all' || r.ch === c, rowsM = mon === 'all' ? rows : rows.filter(r => r.date.startsWith(mon));
+  kpis3('c-kpi', rowsM, mon, m => ROWS.filter(r => r.date.startsWith(m) && pred(r)));
   combo('c-month', byMonth(rows, ms).map(x => ({ label: x.label, a: x.has ? x.v : null })), false, money);
-  hbar('c-prov', [...group(rows, r => r.prov || 'ไม่ระบุ', () => ({ o:new Set(), v:0 }), (a, r) => { a.o.add(r.order); a.v += r.net; })]
+  hbar('c-prov', [...group(rowsM, r => r.prov || 'ไม่ระบุ', () => ({ o:new Set(), v:0 }), (a, r) => { a.o.add(r.order); a.v += r.net; })]
     .sort((a, b) => b[1].o.size - a[1].o.size).slice(0, 10).map(([k, a]) => [k, a.v, fmt(a.o.size) + ' ออเดอร์']), money);
 }
-const kpiCards = rows => {
-  const q = rows.reduce((a, r) => a + r.qty, 0), v = rows.reduce((a, r) => a + r.net, 0), o = new Set(rows.map(r => r.order)).size;
-  return [['จำนวนชิ้นที่ขาย', fmt(q), '--c1'], ['ยอดสุทธิ', money(v), '--c3'], ['จำนวนออเดอร์', fmt(o), '--c2']]
-    .map(([l, x, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${x}</div></div>`).join('');
-};
+const kpiCards = (rows, mk, rowsOf) => kpiHtml(rows, mk || 'all', rowsOf);
 const tableHtml = (heads, rows) => '<tr>' + heads.map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
   (rows.length ? rows.map(r => '<tr>' + r.map((c, i) => `<td class="${i ? 'r' : ''}">${esc(c)}</td>`).join('') + '</tr>').join('')
                : `<tr><td class="empty" colspan="${heads.length}">ไม่มีข้อมูลในช่วงนี้</td></tr>`);
@@ -430,26 +443,27 @@ function lines2(id, series, fa, fl, o = {}) {
 
 function renderCat(k) {
   const cf = CATS.find(c => c.k === k), ms = monthsList(), inMs = ROWS.filter(r => ms.includes(r.date.slice(0,7)));
-  const sa = $('f-' + k).value, sb = $('g-' + k).value, mt = $('m-' + k).value;
+  const sa = $('f-' + k).value, sb = $('g-' + k).value, mt = $('m-' + k).value, mon = $('mo-' + k).value;
   const sels = [sa]; if (sb !== 'none' && sb !== sa) sels.push(sb);
   const series = sels.map((v, i) => {
-    const rows = v === 'all' ? inMs : inMs.filter(r => (r[k] || '(ไม่ระบุ)') === v), bm = byMonth(rows, ms);
+    const pred = r => v === 'all' || (r[k] || '(ไม่ระบุ)') === v, rows = inMs.filter(pred), bm = byMonth(rows, ms);
+    const rowsM = mon === 'all' ? rows : rows.filter(r => r.date.startsWith(mon)), rowsOf = m => ROWS.filter(r => r.date.startsWith(m) && pred(r));
     let vals = bm.map(x => x.has ? (mt === 'qty' ? x.q : x.v) : null);
     if (mt === 'idx') { const bi = vals.findIndex(x => x), base = bi >= 0 ? vals[bi] : 0; vals = vals.map((x, j) => (x === null || !base || j < bi) ? null : x / base * 100); }
-    return { name: v === 'all' ? 'ทุก' + cf.tab : v, color: i ? '--c2' : '--c1', rows, pts: bm.map((x, j) => ({ label: x.label, v: vals[j] })) };
+    return { name: v === 'all' ? 'ทุก' + cf.tab : v, color: i ? '--c2' : '--c1', rows, rowsM, rowsOf, pts: bm.map((x, j) => ({ label: x.label, v: vals[j] })) };
   });
   const cmp = series.length > 1;
   const sw = sr => `<h2 class="cmp"><i class="sw" style="background:var(${sr.color})"></i>${esc(sr.name)}</h2>`;
   $(k + '-kpi').className = cmp ? 'grid cmp2' : 'grid kpis3';
-  $(k + '-kpi').innerHTML = cmp ? series.map(sr => `<div>${sw(sr)}<div class="grid kpis3" style="margin-bottom:0">${kpiCards(sr.rows)}</div></div>`).join('') : kpiCards(series[0].rows);
+  $(k + '-kpi').innerHTML = cmp ? series.map(sr => `<div>${sw(sr)}<div class="grid kpis3" style="margin-bottom:0">${kpiCards(sr.rowsM, mon, sr.rowsOf)}</div></div>`).join('') : kpiCards(series[0].rowsM, mon, series[0].rowsOf);
   $(k + '-ctitle').textContent = (mt === 'qty' ? 'จำนวนชิ้น' : mt === 'idx' ? 'ดัชนียอดสุทธิ (เดือนแรกที่มีข้อมูล = 100)' : 'ยอดขาย (บาท)') + ' รายเดือน (ทั้งปี) · ' + cf.tab;
   lines2(k + '-month', series,
     mt === 'qty' ? v => fmt(v) + ' ชิ้น' : mt === 'idx' ? v => v.toFixed(0) : money,
     mt === 'qty' ? fmt : mt === 'idx' ? v => Math.round(v) : short);
   $(k + '-tops').className = cmp ? 'grid cmp2' : 'grid';
-  $(k + '-tops').innerHTML = series.map(sr => `<div class="card"><h2>${cmp ? '' : ''}10 อันดับสินค้าขายดี · ${esc(sr.name)}</h2><div class="scroll"><table>` +
+  $(k + '-tops').innerHTML = series.map(sr => `<div class="card"><h2>${cmp ? '' : ''}10 อันดับสินค้าขายดี · ${esc(sr.name)} (${mon === 'all' ? 'ทั้งปี' : monthName(mon)})</h2><div class="scroll"><table>` +
     tableHtml(['สินค้า (รุ่น)', 'จำนวน', 'ยอดเงิน (฿)'],
-      [...group(sr.rows, r => r.prod || 'ไม่ระบุ', () => ({ q:0, v:0 }), (a, r) => { a.q += r.qty; a.v += r.net; })]
+      [...group(sr.rowsM, r => r.prod || 'ไม่ระบุ', () => ({ q:0, v:0 }), (a, r) => { a.q += r.qty; a.v += r.net; })]
         .sort((a, b) => b[1].q - a[1].q).slice(0, 10).map(([p, a], i) => [(i + 1) + '. ' + p, fmt(a.q), fmt(a.v)])) + '</table></div></div>').join('');
 }
 function gbars(id, cats, series, fl) {
@@ -567,8 +581,13 @@ function renderLd() {
   const hasL = new Set(allM), gm = group(base, r => r.date.slice(0,7), () => [], (a, r) => a.push(r)), rowsOf = mk => gm.get(mk) || [];
   const n = scope.length, b = scope.filter(r => r.bought).length, who = ov === 'all' ? ' (ทุกคน)' : ' · ' + ov;
 
-  $('ld-kpi').innerHTML = [['ลูกค้าที่เข้ามา', fmt(n), '--c1'], ['ซื้อแล้ว', fmt(b), '--c3'], ['ยังไม่ซื้อ / อื่น ๆ', fmt(n - b), '--c2'], ['อัตราปิดการขาย', n ? (b / n * 100).toFixed(1) + '%' : '-', '--c1']]
-    .map(([l, x, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${x}</div></div>`).join('');
+  const ck = yv !== 'all' && mv !== 'all' ? yv + '-' + mv : null, bOf = mk => rowsOf(mk).filter(r => r.bought).length;
+  const rate = mk => { const t = rowsOf(mk).length; return t ? bOf(mk) / t * 100 : null; };
+  const ptH = (cur, ref) => ref == null || cur == null ? '' : `<span class="${cur - ref >= 0 ? 'up' : 'dn'}">${cur - ref >= 0 ? '▲' : '▼'} ${Math.abs(cur - ref).toFixed(1)} pt</span>`;
+  const ldCard = (l, v, c, valOf, delta) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${v}</div><div class="d">${ck ? cmpHtml(cmpM(ck, valOf, LDRNG, delta)) : ''}</div></div>`;
+  $('ld-kpi').innerHTML = ldCard('ลูกค้าที่เข้ามา', fmt(n), '--c1', mk => rowsOf(mk).length) + ldCard('ซื้อแล้ว', fmt(b), '--c3', bOf)
+    + ldCard('ยังไม่ซื้อ / อื่น ๆ', fmt(n - b), '--c2', mk => rowsOf(mk).length - bOf(mk))
+    + ldCard('อัตราปิดการขาย', n ? (b / n * 100).toFixed(1) + '%' : '-', '--c1', rate, ptH);
 
   // กราฟ 12 เดือนย้อนหลัง: ขยับตามปี/เดือนที่เลือก (ปลายทางคือเดือนที่เลือก; เลือกแค่ปี = เดือนล่าสุดที่มีข้อมูลของปีนั้น)
   const anchor = (() => {
@@ -636,10 +655,12 @@ function renderChat() {
     $('cht-d').innerHTML = '<p class="empty">ไม่พบข้อมูลแชท (ตรวจชื่อแท็บ "DATA แชท Shopee" และ "Data แชท Facebook" ใน Sheet)</p>'; return;
   }
   const ch = $('cht-ch').value, m = $('cht-m').value, name = { all: 'ทุกช่องทาง', fb: 'Facebook', sp: 'Shopee' }[ch];
-  const cur = chSum(chDays(m, ch)), mom = chSum(chDays(chPrev(m), ch)), yoy = chSum(chDays(chYoY(m), ch));
+  const rng = (k => { const f = rangeOf(CHAT.fb.map(x => x.d)), s = rangeOf(CHAT.shopee.map(x => x.d)); return k === 'fb' ? f : k === 'sp' ? s : { min: f.min > s.min ? f.min : s.min, max: f.max < s.max ? f.max : s.max }; })(ch);
+  const avgOf = k => mm => { const z = chSum(chDays(mm, k)); return z ? z.avg : null; };
+  const cur = chSum(chDays(m, ch));
 
   $('cht-kpi').innerHTML = cur ? [
-    ['เฉลี่ยต่อวัน', chR1(cur.avg), `MoM ${chChg(cur.avg, mom && mom.avg)}<br>YoY ${chChg(cur.avg, yoy && yoy.avg)}`, '--c1'],
+    ['เฉลี่ยต่อวัน', chR1(cur.avg), cmpHtml(cmpM(m, avgOf(ch), rng)), '--c1'],
     ['สูงสุด (Max)', fmt(cur.max), dayName(cur.maxD), '--c2'],
     ['ต่ำสุด (Min)', fmt(cur.min), dayName(cur.minD), '--c3'],
     ['รวมทั้งเดือน', fmt(cur.tot), cur.n + ' วันที่มีข้อมูล', '--c1']]
@@ -657,10 +678,13 @@ function renderChat() {
   // ตารางสรุปแยกช่องทาง (เมื่อเลือกทุกช่องทาง)
   $('cht-bcard').hidden = ch !== 'all';
   if (ch === 'all') {
-    const rowOf = (label, k) => { const c = chSum(chDays(m, k)), p = chSum(chDays(chPrev(m), k)), y = chSum(chDays(chYoY(m), k));
-      return c ? [label, chR1(c.avg), `${fmt(c.max)}<span class="n2">${dayName(c.maxD)}</span>`, `${fmt(c.min)}<span class="n2">${dayName(c.minD)}</span>`, fmt(c.tot), chChg(c.avg, p && p.avg), chChg(c.avg, y && y.avg)] : [label, '-', '-', '-', '-', '-', '-']; };
-    $('cht-bt').innerHTML = '<tr>' + ['ช่องทาง', 'เฉลี่ย/วัน', 'สูงสุด', 'ต่ำสุด', 'รวม', 'MoM', 'YoY'].map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
-      [rowOf('Facebook', 'fb'), rowOf('Shopee', 'sp'), rowOf('รวม', 'all')].map(r => '<tr>' + r.map((c, i) => `<td class="${i ? 'r' : ''}">${c}</td>`).join('') + '</tr>').join('');
+    const rowOf = (label, k) => { const c = chSum(chDays(m, k)); if (!c) return { cells: [label, '-', '-', '-', '-'], mom: '', yoy: '' };
+      const x = cmpM(m, avgOf(k), (z => { const f = rangeOf(CHAT.fb.map(q => q.d)), sp = rangeOf(CHAT.shopee.map(q => q.d)); return z === 'fb' ? f : z === 'sp' ? sp : { min: f.min > sp.min ? f.min : sp.min, max: f.max < sp.max ? f.max : sp.max }; })(k));
+      return { cells: [label, chR1(c.avg), `${fmt(c.max)}<span class="n2">${dayName(c.maxD)}</span>`, `${fmt(c.min)}<span class="n2">${dayName(c.minD)}</span>`, fmt(c.tot)], mom: x.mom || '-', yoy: x.yoy || '' };
+    };
+    const rws = [rowOf('Facebook', 'fb'), rowOf('Shopee', 'sp'), rowOf('รวม', 'all')], showY = rws.some(r => r.yoy);
+    $('cht-bt').innerHTML = '<tr>' + ['ช่องทาง', 'เฉลี่ย/วัน', 'สูงสุด', 'ต่ำสุด', 'รวม', 'MoM', ...(showY ? ['YoY'] : [])].map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
+      rws.map(r => '<tr>' + [...r.cells, r.mom || '-', ...(showY ? [r.yoy || '-'] : [])].map((c, i) => `<td class="${i ? 'r' : ''}">${c}</td>`).join('') + '</tr>').join('');
   }
 
   // กราฟแยก Ads / Organic (เฉพาะช่องทางที่มีข้อมูลนี้ ตอนนี้คือ Facebook)
@@ -729,6 +753,7 @@ async function init() {
         bought: norm(f('ซื้อแล้ว')).startsWith('ซื้อแล้ว'), buy: t(f('ช่องทาง (ที่สั่งซื้อ)')),
         f1: marked(f('ติดตามครั้งที่ 1')), f2: marked(f('ติดตามครั้งที่ 2')), f3: marked(f('ติดตามครั้งที่ 3')) };
     });
+    DBRNG = rangeOf(ROWS.map(r => r.date)); LDRNG = rangeOf(LEADS.map(r => r.date));
     CHAT = Object.assign({ shopee: [], fb: [] }, j.chat || {});
     if (j._chatErr && $('msg').style.display !== 'block') warn('แท็บแชท: ' + j._chatErr);
     if (!LEADS.length && $('msg').style.display !== 'block') warn('ไม่พบแถวข้อมูลในแท็บ Lead (แท็บที่อ่าน: ' + (j._leadSheet || 'ไม่พบ') + ' · แท็บทั้งหมด: ' + (j._sheetNames || []).join(', ') + ')');
@@ -743,6 +768,7 @@ async function init() {
  <section id="v-${c.k}" hidden>
   <div class="bar">
    <label>เลือก <select id="f-${c.k}" aria-label="เลือก${c.tab}"></select></label>
+   <label>เดือน <select id="mo-${c.k}"></select></label>
    <label>เปรียบเทียบกับ <select id="g-${c.k}" aria-label="เปรียบเทียบกับ"></select></label>
    <label>ดูเป็น <select id="m-${c.k}"><option value="net">ยอดสุทธิ (บาท)</option><option value="qty">จำนวนชิ้น</option><option value="idx">ดัชนี (เดือนแรก = 100)</option></select></label>
   </div>
@@ -755,8 +781,11 @@ async function init() {
     const opts = `<option value="all">ทุก${c.tab}</option>` + [...m].sort((a, b) => b[1].v - a[1].v).map(([k]) => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
     $('f-' + c.k).innerHTML = opts;
     $('g-' + c.k).innerHTML = '<option value="none">ไม่เปรียบเทียบ</option>' + opts;
-    ['f-', 'g-', 'm-'].forEach(pf => $(pf + c.k).addEventListener('change', () => renderCat(c.k)));
+    ['f-', 'g-', 'm-', 'mo-'].forEach(pf => $(pf + c.k).addEventListener('change', () => renderCat(c.k)));
   });
+  const hasMon = new Set(ROWS.map(r => r.date.slice(0,7))), monOpts = '<option value="all">ทั้งปี</option>' + monthsList().filter(m => hasMon.has(m)).map(m => `<option value="${m}">${monthName(m)}</option>`).join('');
+  ['p-mon', 'c-mon', ...CATS.map(c => 'mo-' + c.k)].forEach(id => { $(id).innerHTML = monOpts; $(id).value = 'all'; });
+  $('p-mon').addEventListener('change', renderProd); $('c-mon').addEventListener('change', renderCh);
   $('prodSel').addEventListener('input', renderProd);
   ['per-view', 'per-m', 'per-mode'].forEach(id => $(id).addEventListener('change', renderPer));
   const oc = new Map(); LEADS.forEach(r => r.offs.forEach(o => oc.set(o, (oc.get(o) || 0) + 1)));
