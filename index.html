@@ -70,6 +70,8 @@ body.locked .app{display:none}
 .menu-btn{display:none;font:inherit;font-size:20px;line-height:1;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:8px 11px;cursor:pointer}
 .bd{display:none}
 @media(max-width:900px){.side{position:fixed;left:0;top:0;bottom:0;transform:translateX(-100%);transition:transform .2s;width:260px}.side.open{transform:none;box-shadow:0 0 24px rgba(0,0,0,.25)}.bd.show{display:block;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:30}.menu-btn{display:inline-flex}.wrap{padding:12px}}
+.kpi .d{font-size:11px}.kpi .d div{white-space:nowrap}.card.kpi{padding:14px 12px}
+.hl{background:var(--bg)}.tall{max-height:380px;overflow-y:auto}
 </style>
 </head>
 <body>
@@ -98,7 +100,9 @@ body.locked .app{display:none}
    <button data-t="cat">ข้อมูลตามหมวดสินค้า</button>
    <button data-t="typ">ข้อมูลตามประเภทสินค้า</button>
    <button data-t="grp">ข้อมูลตามกลุ่มสินค้า</button>
+   <button data-t="ship">ข้อมูลการจัดส่ง</button>
    <button data-t="per">ข้อมูลตามช่วงเวลาขาย</button>
+   <button data-t="pay">ข้อมูลช่องทางการชำระเงิน</button>
    <button data-t="ld">ข้อมูล Lead ลูกค้า</button>
    <button data-t="chat">ข้อมูลการตอบแชท</button>
   </nav>
@@ -152,6 +156,8 @@ body.locked .app{display:none}
   <div class="grid kpis3" id="c-kpi"></div>
   <div class="card" style="margin-bottom:12px"><h2>ยอดขาย (บาท) รายเดือน (ทั้งปี)</h2><div id="c-month"></div></div>
   <div class="card"><h2>จังหวัดที่ซื้อบ่อย (เรียงตามจำนวนออเดอร์) แสดงยอดสุทธิ</h2><div id="c-prov"></div></div>
+  <div class="card" style="margin-top:12px"><h2>ประเภทการติดต่อ: จำนวนครั้งและยอดเงิน</h2><p class="sub" id="ch-cts"></p><div id="ch-ct"></div><div class="scroll"><table id="ch-ctt"></table></div></div>
+  <div class="card" style="margin-top:12px"><h2>ช่องทาง × ประเภทการติดต่อ</h2><p class="sub">แต่ละช่อง: จำนวนครั้ง (ออเดอร์) และยอดเงิน · ตามเดือนที่เลือก · ไม่นับรายการแถม · แถวของช่องทางที่เลือกไฮไลต์</p><div class="scroll"><table id="ch-mx"></table></div></div>
  </section>
  <section id="v-per" hidden>
   <div class="bar">
@@ -162,6 +168,29 @@ body.locked .app{display:none}
   <div class="card" style="margin-bottom:12px"><h2 id="per-title"></h2><div id="per-chart"></div></div>
   <div class="grid" id="per-tables"></div>
  </section>
+ <section id="v-ship" hidden>
+  <div class="bar">
+   <label>ช่องทางจัดส่ง <select id="sh-ch"></select></label>
+   <label>เดือน <select id="sh-mon"></select></label>
+   <span class="sub" id="sh-scope"></span>
+  </div>
+  <div class="grid kpis3" id="sh-kpi"></div>
+  <div class="grid">
+   <div class="card"><h2>ความถี่ในการจัดส่งรายเดือน (จำนวนออเดอร์)</h2><div id="sh-month"></div></div>
+   <div class="card"><h2>แต่ละช่องทางจัดส่ง ไปจังหวัดไหนบ้าง</h2><p class="sub">จำนวนออเดอร์ · 8 จังหวัดที่ส่งมากที่สุด · ตามเดือนที่เลือก · แสดงทุกช่องทางจัดส่ง</p><div class="scroll"><table id="sh-mx"></table></div></div>
+   <div class="card"><h2>จังหวัด × เดือน (ตามช่องทางจัดส่งที่เลือก)</h2><p class="sub">จำนวนออเดอร์รายเดือนทั้งปี · คอลัมน์เดือนที่เลือกไฮไลต์</p><div class="scroll"><table id="sh-pm"></table></div></div>
+  </div>
+  <div class="grid cmp2" style="margin-top:12px">
+   <div class="card"><h2>จังหวัดที่จัดส่ง Top 10 และสัดส่วน</h2><div id="sh-bar"></div></div>
+   <div class="card"><h2>ทุกจังหวัด มาก → น้อย</h2><div class="scroll tall"><table id="sh-all"></table></div></div>
+  </div>
+ </section>
+
+ <section id="v-pay" hidden>
+  <div class="card" style="margin-bottom:12px"><h2>ความถี่ในการรับชำระเงิน แต่ละช่องทาง รายเดือน (จำนวนออเดอร์)</h2><p class="sub" id="pay-note"></p><div id="pay-chart"></div></div>
+  <div class="card"><h2>ช่องทางการชำระ × เดือน</h2><div class="scroll"><table id="pay-tbl"></table></div></div>
+ </section>
+
  <section id="v-ld" hidden>
   <div class="bar">
    <label>ปี <select id="ld-y"></select></label>
@@ -202,15 +231,16 @@ const CFG = {
   B2B_CHANNEL: 'line b2b',        // ค่าในคอลัมน์ "ช่องทาง" ที่ถือเป็น B2B (ที่เหลือทั้งหมดเป็น B2C)
   EXCLUDE_CANCELLED: true,        // true = ไม่นับแถวที่มีค่าในคอลัมน์ "ยกเลิกใน shopee"
   COL: { date:'วันที่ซื้อ', order:'เลขที่คำสั่งซื้อ', prod:'รุ่น', qty:'จำนวนขาย', pre:'พรีออเดอร์',
-         cust:'ชื่อลูกค้า', cancel:'ยกเลิกใน shopee', ch:'ช่องทาง', price:'ราคา', net:'ยอดสุทธิ', ar:'ยอดคงค้าง', prov:'จังหวัด', pay:'ช่องทางการชำระ' }
+         cust:'ชื่อลูกค้า', cancel:'ยกเลิกใน shopee', ch:'ช่องทาง', price:'ราคา', net:'ยอดสุทธิ', ar:'ยอดคงค้าง', prov:'จังหวัด', pay:'ช่องทางการชำระ', ship:'ช่องทางจัดส่งสินค้า', ctype:'ประเภทการติดต่อ' }
 };
 /* ================== */
 
+const provN = v => /^(กทม\.?|กรุงเทพ(ฯ|มหานคร)?)$/.test(v) ? 'กรุงเทพฯ' : v;   // รวมชื่อกรุงเทพที่เขียนต่างกัน
 let ROWS = [], LEADS = [], OFFS = [], CHAT = { shopee: [], fb: [] }, chMonths = [], DBRNG = {}, LDRNG = {};
 // แท็บหมวด/ประเภท/กลุ่มสินค้า (col = ชื่อหัวคอลัมน์ใน Sheet; ถ้าหัวคอลัมน์มีข้อความต่อท้าย เช่น "- เพิ่มใหม่" ก็อ่านได้)
 const CATS = [ { k:'cat', tab:'หมวดสินค้า', col:'หมวดสินค้า' }, { k:'typ', tab:'ประเภทสินค้า', col:'ประเภทสินค้า' }, { k:'grp', tab:'กลุ่มสินค้า', col:'กลุ่มสินค้า' } ];
-const TABS = ['ov', 'prod', 'ch', ...CATS.map(c => c.k), 'per', 'ld', 'chat'];
-const TITLES = { ov: 'ภาพรวม', prod: 'ข้อมูลรายสินค้า', ch: 'ข้อมูลรายช่องทางขาย', cat: 'ข้อมูลตามหมวดสินค้า', typ: 'ข้อมูลตามประเภทสินค้า', grp: 'ข้อมูลตามกลุ่มสินค้า', per: 'ข้อมูลตามช่วงเวลาขาย', ld: 'ข้อมูล Lead ลูกค้า', chat: 'ข้อมูลการตอบแชท' };
+const TABS = ['ov', 'prod', 'ch', ...CATS.map(c => c.k), 'ship', 'per', 'pay', 'ld', 'chat'];
+const TITLES = { ov: 'ภาพรวม', prod: 'ข้อมูลรายสินค้า', ch: 'ข้อมูลรายช่องทางขาย', cat: 'ข้อมูลตามหมวดสินค้า', typ: 'ข้อมูลตามประเภทสินค้า', grp: 'ข้อมูลตามกลุ่มสินค้า', ship: 'ข้อมูลการจัดส่ง', per: 'ข้อมูลตามช่วงเวลาขาย', pay: 'ข้อมูลช่องทางการชำระเงิน', ld: 'ข้อมูล Lead ลูกค้า', chat: 'ข้อมูลการตอบแชท' };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const num = v => Number(String(v ?? '').replace(/[,฿\s]/g, '')) || 0;
@@ -251,7 +281,7 @@ function calc(sel) {
 
 
 const pctH = (cur, prev) => { if (!prev) return ''; const p = (cur - prev) / prev * 100, a = Math.abs(p);
-  return `<span class="${p >= 0 ? 'up' : 'dn'}">${p >= 0 ? '▲' : '▼'} ${a >= 100 ? a.toFixed(0) : a.toFixed(1)}%</span>`; };
+  return `<span class="${p >= 0 ? 'up' : 'dn'}">${p >= 0 ? '▲' : '▼'}&#8202;${a >= 100 ? a.toFixed(0) : a.toFixed(1)}%</span>`; };
 
 function table(id, heads, rows) {
   $(id).innerHTML = '<tr>' + heads.map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
@@ -407,6 +437,7 @@ function renderProd() {
     .sort((a, b) => b[1].q - a[1].q).slice(0, 10).map(([k, a]) => [k, a.q]), v => fmt(v) + ' ชิ้น');
 }
 function renderCh() {
+  renderChExtra();
   const ms = monthsList(), c = $('chSel').value, inMs = ROWS.filter(r => ms.includes(r.date.slice(0,7)));
   const rows = c === 'all' ? inMs : inMs.filter(r => r.ch === c);
   const mon = $('c-mon').value, pred = r => c === 'all' || r.ch === c, rowsM = mon === 'all' ? rows : rows.filter(r => r.date.startsWith(mon));
@@ -699,6 +730,77 @@ function renderChat() {
   }
 }
 
+const fmtZ = n => n ? fmt(n) : '-';
+const nOrd = rs => new Set(rs.map(r => r.order)).size;   // นับตามเลขที่คำสั่งซื้อไม่ซ้ำ (แถวที่ไม่มีเลขที่ นับเป็นรายการละ 1)
+
+/* ===== ประเภทการติดต่อ (ในหน้ารายช่องทางขาย) ===== */
+function renderChExtra() {
+  const ms = monthsList(), c = $('chSel').value, mon = $('c-mon').value, inMs = ROWS.filter(r => ms.includes(r.date.slice(0,7)));
+  const ctOf = r => r.ctype || 'ไม่ระบุ', gift = r => r.ctype.startsWith('แถม');
+  const scopeAll = (mon === 'all' ? inMs : inMs.filter(r => r.date.startsWith(mon))).filter(r => !gift(r)), rowsCt = scopeAll.filter(r => c === 'all' || r.ch === c);
+  $('ch-cts').textContent = `ช่องทาง: ${c === 'all' ? 'ทุกช่องทาง' : c} · เดือน: ${mon === 'all' ? 'ทั้งปี' : monthName(mon)} · จำนวนครั้ง = จำนวนออเดอร์ · ไม่นับรายการแถม`;
+  const g = [...group(rowsCt, ctOf, () => ({ rs: [] }), (a, r) => a.rs.push(r))].map(([k, a]) => ({ k, o: nOrd(a.rs), v: a.rs.reduce((x, r) => x + r.net, 0) })).sort((a, b) => b.o - a.o);
+  const to = g.reduce((a, x) => a + x.o, 0) || 1, tv = g.reduce((a, x) => a + x.v, 0) || 1;
+  hbar('ch-ct', g.slice(0, 8).map(x => [x.k, x.o, moneyS(x.v)]), v => fmt(v) + ' ครั้ง');
+  table('ch-ctt', ['ประเภทการติดต่อ', 'จำนวนครั้ง', '%', 'ยอดเงิน (฿)', '%'], g.map(x => [x.k, fmt(x.o), (x.o / to * 100).toFixed(1) + '%', fmt(x.v), (x.v / tv * 100).toFixed(1) + '%']));
+  const topT = [...group(scopeAll, ctOf, () => ({ rs: [] }), (a, r) => a.rs.push(r))].map(([k, a]) => [k, nOrd(a.rs)]).sort((a, b) => b[1] - a[1]).slice(0, 6).map(x => x[0]);
+  const chs = [...group(scopeAll, r => r.ch || 'ไม่ระบุ', () => [], (a, r) => a.push(r))].sort((a, b) => nOrd(b[1]) - nOrd(a[1])).slice(0, 12);
+  const cell = rs => rs.length ? `${fmt(nOrd(rs))}<span class="n2">${moneyS(rs.reduce((x, r) => x + r.net, 0))}</span>` : '-';
+  $('ch-mx').innerHTML = '<tr>' + ['ช่องทาง', ...topT, 'อื่น ๆ', 'รวม'].map((h, i) => `<th class="${i ? 'r' : ''}">${esc(h)}</th>`).join('') + '</tr>' +
+    chs.map(([k, rs]) => `<tr${k === c ? ' class="hl"' : ''}>` + [esc(k), ...topT.map(t => cell(rs.filter(r => ctOf(r) === t))), cell(rs.filter(r => !topT.includes(ctOf(r)))), cell(rs)].map((v, i) => `<td class="${i ? 'r' : ''}">${v}</td>`).join('') + '</tr>').join('');
+}
+
+/* ===== ข้อมูลการจัดส่ง ===== */
+function renderShip() {
+  const ms = monthsList(), c = $('sh-ch').value, mon = $('sh-mon').value, inMs = ROWS.filter(r => ms.includes(r.date.slice(0,7)));
+  const shipOf = r => r.ship || 'ไม่ระบุ', provOf = r => r.prov || 'ไม่ระบุ', pred = r => c === 'all' || shipOf(r) === c;
+  const rows = inMs.filter(pred), rowsM = mon === 'all' ? rows : rows.filter(r => r.date.startsWith(mon)), scopeAll = mon === 'all' ? inMs : inMs.filter(r => r.date.startsWith(mon));
+  $('sh-scope').textContent = `ช่องทาง: ${c === 'all' ? 'ทุกช่องทาง' : c} · เดือน: ${mon === 'all' ? 'ทั้งปี' : monthName(mon)}`;
+  const stat = rs => ({ o: nOrd(rs), v: rs.reduce((a, r) => a + r.net, 0), p: new Set(rs.map(provOf)).size }), cur = stat(rowsM), cache = {};
+  const S = m => cache[m] || (cache[m] = stat(ROWS.filter(r => r.date.startsWith(m) && pred(r)))), cd = k => mon === 'all' ? '' : cmpHtml(cmpM(mon, m => S(m)[k], DBRNG));
+  $('sh-kpi').innerHTML = [['จำนวนครั้งที่จัดส่ง (ออเดอร์)', fmt(cur.o), 'o', '--c1'], ['ยอดสุทธิ', money(cur.v), 'v', '--c3'], ['จำนวนจังหวัดที่ส่งถึง', fmt(cur.p), null, '--c2']]
+    .map(([l, v, k, col]) => `<div class="card kpi" style="--a:var(${col})"><div class="l">${l}</div><div class="v">${v}</div><div class="d">${k ? cd(k) : ''}</div></div>`).join('');
+
+  // ความถี่รายเดือน (แยกตามช่องทางจัดส่ง)
+  const hasM = new Set(ROWS.map(r => r.date.slice(0,7))), pal = ['--c1', '--c2', '--c3', '--c4', '--c5'], gm = group(rows, r => r.date.slice(0,7), () => [], (a, r) => a.push(r));
+  const cnt = (m, f) => hasM.has(m) ? nOrd((gm.get(m) || []).filter(f)) : null;
+  const top = [...group(rows, shipOf, () => [], (a, r) => a.push(r))].sort((a, b) => nOrd(b[1]) - nOrd(a[1])).map(([k]) => k), keep = c === 'all' ? top.slice(0, 5) : [c];
+  const series = keep.map((k, i) => ({ name: k, color: pal[i], vals: ms.map(m => cnt(m, r => shipOf(r) === k)) }));
+  if (c === 'all' && top.length > 5) series.push({ name: 'อื่น ๆ', color: '--mute', vals: ms.map(m => cnt(m, r => !keep.includes(shipOf(r)))) });
+  sbars('sh-month', ms.map(k => mShort(k)), series);
+
+  // ช่องทางจัดส่ง × จังหวัด (เดือนที่เลือก)
+  const topP = [...group(scopeAll, provOf, () => [], (a, r) => a.push(r))].sort((a, b) => nOrd(b[1]) - nOrd(a[1])).slice(0, 8).map(([k]) => k);
+  const shipRows = [...group(scopeAll, shipOf, () => [], (a, r) => a.push(r))].sort((a, b) => nOrd(b[1]) - nOrd(a[1])).slice(0, 14);
+  table('sh-mx', ['ช่องทางจัดส่ง', ...topP, 'อื่น ๆ', 'รวม'], shipRows.map(([k, rs]) => [k, ...topP.map(p => fmtZ(nOrd(rs.filter(r => provOf(r) === p)))), fmtZ(nOrd(rs.filter(r => !topP.includes(provOf(r))))), fmt(nOrd(rs))]));
+
+  // จังหวัด × เดือน (ช่องทางที่เลือก)
+  const mcols = ms.filter(m => hasM.has(m)), plist = [...group(rows, provOf, () => [], (a, r) => a.push(r))].sort((a, b) => nOrd(b[1]) - nOrd(a[1]));
+  const line = (label, rs) => { const byM = group(rs, r => r.date.slice(0,7), () => [], (a, r) => a.push(r)); return [label, ...mcols.map(m => nOrd(byM.get(m) || [])), nOrd(rs)]; };
+  const pmRows = [...plist.slice(0, 12).map(([k, rs]) => line(k, rs)), ...(plist.length > 12 ? [line('อื่น ๆ', plist.slice(12).flatMap(x => x[1]))] : []), line('รวม', rows)];
+  $('sh-pm').innerHTML = '<tr>' + ['จังหวัด', ...mcols.map(k => mShort(k)), 'รวม'].map((h, i) => `<th class="${i ? 'r' : ''}${i && mcols[i - 1] === mon ? ' hl' : ''}">${esc(h)}</th>`).join('') + '</tr>' +
+    pmRows.map(r => '<tr>' + r.map((v, i) => `<td class="${i ? 'r' : ''}${i && mcols[i - 1] === mon ? ' hl' : ''}">${i ? fmtZ(v) : esc(v)}</td>`).join('') + '</tr>').join('');
+
+  // จังหวัด มาก-น้อย และสัดส่วน (ตามตัวกรอง)
+  const pg = [...group(rowsM, provOf, () => [], (a, r) => a.push(r))].map(([k, rs]) => ({ k, o: nOrd(rs), v: rs.reduce((a, r) => a + r.net, 0) })).sort((a, b) => b.o - a.o), to = pg.reduce((a, x) => a + x.o, 0) || 1;
+  hbar('sh-bar', pg.slice(0, 10).map(x => [x.k, x.o, (x.o / to * 100).toFixed(1) + '%']), v => fmt(v) + ' ครั้ง');
+  table('sh-all', ['จังหวัด', 'จำนวนครั้ง', 'สัดส่วน', 'ยอดสุทธิ (฿)'], pg.map(x => [x.k, fmt(x.o), (x.o / to * 100).toFixed(1) + '%', fmt(x.v)]));
+}
+
+/* ===== ข้อมูลช่องทางการชำระเงิน ===== */
+function renderPay() {
+  const ms = monthsList(), inMs = ROWS.filter(r => ms.includes(r.date.slice(0,7))), hasM = new Set(ROWS.map(r => r.date.slice(0,7)));
+  const withPay = inMs.filter(r => r.pay), blank = nOrd(inMs.filter(r => !r.pay));
+  $('pay-note').textContent = `นับจำนวนออเดอร์ที่ไม่ซ้ำตามช่องทางการชำระ · ไม่นับออเดอร์ที่ไม่ระบุช่องทางการชำระ (${fmt(blank)} ออเดอร์)`;
+  const gm = group(withPay, r => r.pay, () => [], (a, r) => a.push(r)), list = [...gm].map(([k, rs]) => ({ k, rs, n: nOrd(rs) })).sort((a, b) => b.n - a.n);
+  const cnt = (rs, m) => hasM.has(m) ? nOrd(rs.filter(r => r.date.startsWith(m))) : null, pal = ['--c1', '--c2', '--c3', '--c4', '--c5'], keep = list.slice(0, 5);
+  const series = keep.map((x, i) => ({ name: x.k, color: pal[i], vals: ms.map(m => cnt(x.rs, m)) }));
+  if (list.length > 5) series.push({ name: 'อื่น ๆ', color: '--mute', vals: ms.map(m => hasM.has(m) ? nOrd(list.slice(5).flatMap(x => x.rs).filter(r => r.date.startsWith(m))) : null) });
+  sbars('pay-chart', ms.map(k => mShort(k)), series);
+  const mcols = ms.filter(m => hasM.has(m)), tot = list.reduce((a, x) => a + x.n, 0) || 1;
+  table('pay-tbl', ['ช่องทางการชำระ', ...mcols.map(k => mShort(k)), 'รวม', '%'], list.map(x => [x.k, ...mcols.map(m => fmtZ(cnt(x.rs, m))), fmt(x.n), (x.n / tot * 100).toFixed(1) + '%']));
+}
+
 function closeMenu() { $('side').classList.remove('open'); $('bd').classList.remove('show'); }
 function setupMenu() {
   $('menuBtn').addEventListener('click', () => { $('side').classList.toggle('open'); $('bd').classList.toggle('show'); });
@@ -712,14 +814,14 @@ function showTab(t) {
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
   if (t === 'ov') render(); else {
     const ms = monthsList(); $('sub').textContent = ms.length ? 'ทั้งปี ' + (+ms[0].slice(0,4) + 543) : '';
-    t === 'prod' ? renderProd() : t === 'ch' ? renderCh() : t === 'per' ? renderPer() : t === 'ld' ? renderLd() : t === 'chat' ? renderChat() : renderCat(t);
+    t === 'prod' ? renderProd() : t === 'ch' ? renderCh() : t === 'ship' ? renderShip() : t === 'pay' ? renderPay() : t === 'per' ? renderPer() : t === 'ld' ? renderLd() : t === 'chat' ? renderChat() : renderCat(t);
   }
 }
 
 let lastW = window.innerWidth;
 window.addEventListener('resize', () => { clearTimeout(window._rz); window._rz = setTimeout(() => {
   if (window.innerWidth === lastW) return; lastW = window.innerWidth;
-  if (!$('v-prod').hidden) renderProd(); else if (!$('v-ch').hidden) renderCh(); else if (!$('v-per').hidden) renderPer(); else if (!$('v-ld').hidden) renderLd(); else if (!$('v-chat').hidden) renderChat(); else { const c = CATS.find(x => !$('v-' + x.k).hidden); if (c) renderCat(c.k); } }, 200); });
+  if (!$('v-prod').hidden) renderProd(); else if (!$('v-ch').hidden) renderCh(); else if (!$('v-ship').hidden) renderShip(); else if (!$('v-pay').hidden) renderPay(); else if (!$('v-per').hidden) renderPer(); else if (!$('v-ld').hidden) renderLd(); else if (!$('v-chat').hidden) renderChat(); else { const c = CATS.find(x => !$('v-' + x.k).hidden); if (c) renderCat(c.k); } }, 200); });
 
 function warn(t) { $('msg').style.display = 'block'; $('msg').textContent = t; }
 
@@ -742,7 +844,7 @@ async function init() {
         order = String(g('order') ?? '').trim() || ('(ว่าง)' + i), ou = order.toUpperCase();
       return { date: parseDate(g('date')), order, prod: String(g('prod') ?? '').trim(), qty: num(g('qty')), pre: marked(g('pre')),
         cust: String(g('cust') ?? '').trim(), cancel: marked(g('cancel')), ch: String(g('ch') ?? '').trim(),
-        prov: String(g('prov') ?? '').trim(), cat: String(gf(CATS[0].col) ?? '').trim(), typ: String(gf(CATS[1].col) ?? '').trim(), grp: String(gf(CATS[2].col) ?? '').trim(), pay: String(g('pay') ?? '').trim(), price: num(g('price')), net: num(g('net')), ar: num(g('ar')),
+        prov: provN(String(g('prov') ?? '').trim()), ship: String(g('ship') ?? '').replace(/\s+/g, ' ').trim(), ctype: String(g('ctype') ?? '').trim(), cat: String(gf(CATS[0].col) ?? '').trim(), typ: String(gf(CATS[1].col) ?? '').trim(), grp: String(gf(CATS[2].col) ?? '').trim(), pay: String(g('pay') ?? '').trim(), price: num(g('price')), net: num(g('net')), ar: num(g('ar')),
         b2b: norm(g('ch')) === norm(CFG.B2B_CHANNEL), fo: ou.startsWith('FO'), so: !ou.startsWith('FO') };
     }).filter(r => !(CFG.EXCLUDE_CANCELLED && r.cancel));
     LEADS = (j.leads || []).map(r => {
@@ -786,6 +888,10 @@ async function init() {
   const hasMon = new Set(ROWS.map(r => r.date.slice(0,7))), monOpts = '<option value="all">ทั้งปี</option>' + monthsList().filter(m => hasMon.has(m)).map(m => `<option value="${m}">${monthName(m)}</option>`).join('');
   ['p-mon', 'c-mon', ...CATS.map(c => 'mo-' + c.k)].forEach(id => { $(id).innerHTML = monOpts; $(id).value = 'all'; });
   $('p-mon').addEventListener('change', renderProd); $('c-mon').addEventListener('change', renderCh);
+  const shipN = group(ROWS, r => r.ship || 'ไม่ระบุ', () => [], (a, r) => a.push(r));
+  $('sh-ch').innerHTML = '<option value="all">ทุกช่องทาง</option>' + [...shipN].sort((a, b) => nOrd(b[1]) - nOrd(a[1])).map(([k]) => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
+  $('sh-mon').innerHTML = monOpts; $('sh-ch').value = 'all'; $('sh-mon').value = 'all';
+  ['sh-ch', 'sh-mon'].forEach(id => $(id).addEventListener('change', renderShip));
   $('prodSel').addEventListener('input', renderProd);
   ['per-view', 'per-m', 'per-mode'].forEach(id => $(id).addEventListener('change', renderPer));
   const oc = new Map(); LEADS.forEach(r => r.offs.forEach(o => oc.set(o, (oc.get(o) || 0) + 1)));
