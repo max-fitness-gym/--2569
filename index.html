@@ -36,8 +36,6 @@ svg{width:100%;height:auto;display:block}
 .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 .bar input{flex:1;min-width:220px;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
 .kpis3{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:12px}
-.half{grid-template-columns:1fr 1fr;margin-bottom:12px}
-@media(max-width:760px){.half{grid-template-columns:1fr}}
 .cmp2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
 .cmp{display:flex;align-items:center;gap:6px;font-size:14px;margin:0 0 8px}.cmp i,.lg i.sw{display:inline-block;width:10px;height:10px;border-radius:2px}
 .bar label{display:flex;align-items:center;gap:6px;color:var(--mute);font-size:13px}
@@ -103,6 +101,9 @@ details{margin-top:8px;color:var(--mute);font-size:12.5px}details summary{cursor
 .rb{position:relative;height:14px;background:rgba(255,255,255,.08);border-radius:7px;margin:16px 0 6px}.rb i{position:absolute;display:block}
 .rb .r{top:0;bottom:0;background:rgba(167,139,250,.35);border-radius:7px}.rb .p{top:-4px;bottom:-4px;width:3px;background:var(--c1);border-radius:2px}.rb .a{top:-4px;bottom:-4px;width:3px;background:var(--c2);border-radius:2px}
 /* analysis layers */
+.track{display:flex;gap:6px 18px;flex-wrap:wrap;align-items:center;font-size:13.5px;color:var(--mute);margin:-2px 0 4px}.track b{color:var(--ink)}
+.lnk{color:var(--c1);text-decoration:underline;margin-left:4px}
+.hsel{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.hsel label{display:flex;align-items:center;gap:6px;color:var(--mute);font-size:13px}
 .l1 .s{font-size:15px;font-weight:700;color:var(--ink);margin:18px 0 8px}
 .verdict{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.05);border-left:5px solid var(--mute);margin-bottom:12px}
 .verdict.hi{border-color:var(--up)}.verdict.lo{border-color:var(--dn)}.verdict.md{border-color:var(--c4)}
@@ -149,6 +150,8 @@ details{margin-top:8px;color:var(--mute);font-size:12.5px}details summary{cursor
    <button data-t="ld">ข้อมูล Lead ลูกค้า</button>
    <button data-t="chat">ข้อมูลการตอบแชท</button>
    <button data-t="so">ยอดขายตาม SO รายเดือน</button>
+   <button data-t="debt">รายงานยอดคงค้างทั้งหมด</button>
+   <button data-t="dead">รายงานสินค้าไม่หมุนเวียน</button>
    <button data-t="an">วิเคราะห์</button>
   </nav>
   <div class="sidefoot"><button id="logout" class="lo" hidden>ออกจากระบบ</button></div>
@@ -158,7 +161,8 @@ details{margin-top:8px;color:var(--mute);font-size:12.5px}details summary{cursor
 <div class="wrap">
  <div class="head">
   <div class="hdl"><button id="menuBtn" class="menu-btn" aria-label="เมนู">☰</button><h1><span id="pgtitle">ภาพรวม</span><span id="sub">กำลังโหลดข้อมูล…</span></h1></div>
-  <label id="monthWrap">เดือน <select id="month" aria-label="กรองตามเดือน"></select></label>
+  <div class="hsel"><label id="yearWrap" style="display:none">ปี <select id="year" aria-label="เลือกปี"></select></label>
+  <label id="monthWrap">เดือน <select id="month" aria-label="กรองตามเดือน"></select></label></div>
  </div>
  <div id="msg"></div>
  <section id="v-ov">
@@ -253,9 +257,20 @@ details{margin-top:8px;color:var(--mute);font-size:12.5px}details summary{cursor
    <div class="card"><h2 id="ld-but"></h2><div id="ld-bu"></div><div class="scroll"><table id="ld-bub"></table></div></div>
   </div>
  </section>
+ <section id="v-debt" hidden>
+  <div class="grid kpis3" id="debt-kpi"></div>
+  <div class="card"><h2>ลูกค้าที่มียอดคงค้าง เรียงจากมากไปน้อย</h2><p class="sub" id="debt-note"></p><div class="scroll tall2"><table id="debt-tbl"></table></div></div>
+ </section>
+
+ <section id="v-dead" hidden>
+  <div class="bar"><label>หมวดสินค้า <select id="dd-cat"></select></label><label>ประเภทสินค้า <select id="dd-typ"></select></label><label>กลุ่มสินค้า <select id="dd-grp"></select></label></div>
+  <div class="grid kpis3" id="dd-kpi"></div>
+  <div class="card"><h2>รุ่นที่ไม่มียอดเกิน 30 วัน (เรียงจากเงียบนานที่สุด)</h2><p class="sub" id="dd-note"></p><div class="scroll tall2"><table id="dd-tbl"></table></div></div>
+ </section>
+
  <section id="v-an" hidden>
   <div class="bar"><label>เดือนที่ใช้วิเคราะห์ <select id="an-mon"></select></label><span class="sub" id="an-note"></span></div>
-  <div id="an-top" class="card l1" style="margin-bottom:12px"><h2>สรุป 5 นาที</h2><div id="an-verdict"></div><div class="grid kpis" id="an-kpi"></div>
+  <div id="an-top" class="card l1" style="margin-bottom:12px"><h2>สรุป 5 นาที</h2><div id="an-verdict"></div><div class="grid kpis" id="an-kpi"></div><div class="track" id="an-track"></div>
    <h3 class="s">เกิดอะไรขึ้น</h3><ul class="sum" id="an-sum"></ul>
    <h3 class="s">เดือนหน้าควรทำ</h3><div id="an-todo"></div>
    <h3 class="s">คาดการณ์เดือนหน้า</h3><div id="an-fc"></div></div>
@@ -308,8 +323,9 @@ const provN = v => /^(กทม\.?|กรุงเทพ(ฯ|มหานคร)
 let ROWS = [], LEADS = [], OFFS = [], CHAT = { shopee: [], fb: [] }, chMonths = [], DBRNG = {}, LDRNG = {}, SORNG = {};
 // แท็บหมวด/ประเภท/กลุ่มสินค้า (col = ชื่อหัวคอลัมน์ใน Sheet; ถ้าหัวคอลัมน์มีข้อความต่อท้าย เช่น "- เพิ่มใหม่" ก็อ่านได้)
 const CATS = [ { k:'cat', tab:'หมวดสินค้า', col:'หมวดสินค้า' }, { k:'typ', tab:'ประเภทสินค้า', col:'ประเภทสินค้า' }, { k:'grp', tab:'กลุ่มสินค้า', col:'กลุ่มสินค้า' } ];
-const TABS = ['ov', 'prod', 'ch', ...CATS.map(c => c.k), 'ship', 'per', 'pay', 'ld', 'chat', 'so', 'an'];
-const TITLES = { ov: 'ภาพรวม', prod: 'ข้อมูลรายสินค้า', ch: 'ข้อมูลรายช่องทางขาย', cat: 'ข้อมูลตามหมวดสินค้า', typ: 'ข้อมูลตามประเภทสินค้า', grp: 'ข้อมูลตามกลุ่มสินค้า', ship: 'ข้อมูลการจัดส่ง', per: 'ข้อมูลตามช่วงเวลาขาย', pay: 'ข้อมูลช่องทางการชำระเงิน', ld: 'ข้อมูล Lead ลูกค้า', chat: 'ข้อมูลการตอบแชท', so: 'ยอดขายตาม SO รายเดือน', an: 'วิเคราะห์' };
+const TABS = ['ov', 'prod', 'ch', ...CATS.map(c => c.k), 'ship', 'per', 'pay', 'ld', 'chat', 'so', 'debt', 'dead', 'an'];
+const TITLES = { ov: 'ภาพรวม', prod: 'ข้อมูลรายสินค้า', ch: 'ข้อมูลรายช่องทางขาย', cat: 'ข้อมูลตามหมวดสินค้า', typ: 'ข้อมูลตามประเภทสินค้า', grp: 'ข้อมูลตามกลุ่มสินค้า', ship: 'ข้อมูลการจัดส่ง', per: 'ข้อมูลตามช่วงเวลาขาย', pay: 'ข้อมูลช่องทางการชำระเงิน', ld: 'ข้อมูล Lead ลูกค้า', chat: 'ข้อมูลการตอบแชท', so: 'ยอดขายตาม SO รายเดือน', debt: 'รายงานยอดคงค้างทั้งหมด', dead: 'รายงานสินค้าไม่หมุนเวียน', an: 'วิเคราะห์' };
+const YEAR_TABS = ['prod', 'ch', 'cat', 'typ', 'grp', 'ship', 'per', 'pay'];   // แท็บที่แสดงตัวเลือกปี
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const num = v => Number(String(v ?? '').replace(/[,฿\s]/g, '')) || 0;
@@ -320,7 +336,6 @@ const short = v => v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v >= 1e3 ? (+(v/1e3).to
 const monthName = k => new Date(+k.slice(0,4), +k.slice(5,7)-1, 1).toLocaleDateString('th-TH', { month:'long', year:'numeric' });
 const dayName = d => new Date(d).toLocaleDateString('th-TH', { day:'numeric', month:'short' });
 const inM = (d, sel) => sel === 'all' || String(d).startsWith(sel);
-const prevKey = k => { let y = +k.slice(0,4), m = +k.slice(5,7) - 1; if (m === 0) { y--; m = 12; } return y + '-' + String(m).padStart(2,'0'); };
 const marked = v => { const s = norm(v); return s !== '' && !['-','no','false','0','ไม่','n'].includes(s); };
 
 function parseDate(v) {
@@ -423,10 +438,11 @@ function render() {
 }
 
 /* ===== แท็บสินค้า / ช่องทาง ===== */
+let YEARS = [], SELYEAR = '';
 const monthsList = () => {
   const all = [...new Set(ROWS.map(r => r.date.slice(0,7)).filter(Boolean))].sort();
   if (!all.length) return [];
-  const y = all[all.length - 1].slice(0,4);   // ปีล่าสุดที่มีในข้อมูล แสดง ม.ค.–ธ.ค.
+  const y = SELYEAR && YEARS.includes(SELYEAR) ? SELYEAR : all[all.length - 1].slice(0,4);   // ปีที่เลือก (ค่าตั้งต้น = ปีล่าสุดในข้อมูล) แสดง ม.ค.–ธ.ค.
   return Array.from({ length: 12 }, (_, i) => y + '-' + String(i + 1).padStart(2, '0'));
 };
 const mShort = k => new Date(+k.slice(0,4), +k.slice(5,7)-1, 1).toLocaleDateString('th-TH', { month:'short', year:'2-digit' });
@@ -461,7 +477,6 @@ function kpiHtml(rows, mk, rowsOf) {   // การ์ด 3 ใบ (ชิ้น
   return [['จำนวนชิ้นที่ขาย', 'q', fmt, '--c1'], ['ยอดสุทธิ', 'v', money, '--c3'], ['จำนวนออเดอร์', 'o', fmt, '--c2']].map(([l, k, f, col]) =>
     `<div class="card kpi" style="--a:var(${col})"><div class="l">${l}</div><div class="v">${f(c[k])}</div><div class="d">${mk === 'all' ? '' : cmpHtml(cmpM(mk, m => S(m)[k], DBRNG))}</div></div>`).join('');
 }
-function kpis3(id, rows, mk, rowsOf) { $(id).innerHTML = kpiHtml(rows, mk || 'all', rowsOf); }
 function combo(id, pts, hasLine, fa, fl, nonote) {
   fl = fl || short;
   const ok = pts.filter(q => q.a !== null);
@@ -532,7 +547,7 @@ function renderCh() {
   const rows = c === 'all' ? inMs : inMs.filter(r => r.ch === c);
   const mon = $('c-mon').value, pred = r => c === 'all' || r.ch === c, rowsM = mon === 'all' ? rows : rows.filter(r => r.date.startsWith(mon));
   setSub(mon);
-  kpis3('c-kpi', rowsM, mon, m => ROWS.filter(r => r.date.startsWith(m) && pred(r)));
+  $('c-kpi').innerHTML = kpiHtml(rowsM, mon, m => ROWS.filter(r => r.date.startsWith(m) && pred(r)));
   if (mon === 'all') { $('c-ct').textContent = 'ยอดขาย (บาท) รายเดือน (ทั้งปี)'; combo('c-month', byMonth(rows, ms).map(x => ({ label: x.label, a: x.has ? x.v : null })), false, money, null, true); }
   else { $('c-ct').textContent = 'ยอดขาย (บาท) รายวัน · ' + monthName(mon); combo('c-month', dayPts(rowsM, mon, r => r.net), false, money, null, true); }
   table('c-top', ['รุ่น', 'จำนวนชิ้น', 'ยอดสุทธิ (฿)'], [...group(rowsM, r => r.prod || 'ไม่ระบุ', () => ({ q: 0, v: 0 }), (a, r) => { a.q += r.qty; a.v += r.net; })]
@@ -541,7 +556,6 @@ function renderCh() {
   if (rest) items.push(['อื่น ๆ', rest]);
   pie('c-prov', items);
 }
-const kpiCards = (rows, mk, rowsOf) => kpiHtml(rows, mk || 'all', rowsOf);
 const tableHtml = (heads, rows) => '<tr>' + heads.map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
   (rows.length ? rows.map(r => '<tr>' + r.map((c, i) => `<td class="${i ? 'r' : ''}">${esc(c)}</td>`).join('') + '</tr>').join('')
                : `<tr><td class="empty" colspan="${heads.length}">ไม่มีข้อมูลในช่วงนี้</td></tr>`);
@@ -583,7 +597,7 @@ function renderCat(k) {
   const cmp = series.length > 1;
   const sw = sr => `<h2 class="cmp"><i class="sw" style="background:var(${sr.color})"></i>${esc(sr.name)}</h2>`;
   $(k + '-kpi').className = cmp ? 'grid cmp2' : 'grid kpis3';
-  $(k + '-kpi').innerHTML = cmp ? series.map(sr => `<div>${sw(sr)}<div class="grid kpis3" style="margin-bottom:0">${kpiCards(sr.rowsM, mon, sr.rowsOf)}</div></div>`).join('') : kpiCards(series[0].rowsM, mon, series[0].rowsOf);
+  $(k + '-kpi').innerHTML = cmp ? series.map(sr => `<div>${sw(sr)}<div class="grid kpis3" style="margin-bottom:0">${kpiHtml(sr.rowsM, mon, sr.rowsOf)}</div></div>`).join('') : kpiHtml(series[0].rowsM, mon, series[0].rowsOf);
   $(k + '-ctitle').textContent = (mt === 'qty' ? 'จำนวนชิ้น' : mt === 'idx' ? 'ดัชนียอดสุทธิ (' + (mon === 'all' ? 'เดือนแรก' : 'วันแรก') + 'ที่มีข้อมูล = 100)' : 'ยอดขาย (บาท)') + (mon === 'all' ? ' รายเดือน (ทั้งปี)' : ' รายวัน · ' + monthName(mon)) + ' · ' + cf.tab;
   lines2(k + '-month', series,
     mt === 'qty' ? v => fmt(v) + ' ชิ้น' : mt === 'idx' ? v => v.toFixed(0) : money,
@@ -769,8 +783,6 @@ function renderLd() {
 
 /* ===== หน้าข้อมูลการตอบแชท (Shopee + Facebook) ===== */
 const chR1 = x => Math.round(x * 10) / 10;
-const chPrev = m => { const k = +m.slice(0,4) * 12 + (+m.slice(5,7) - 2); return Math.floor(k / 12) + '-' + String(k % 12 + 1).padStart(2, '0'); };
-const chYoY = m => (+m.slice(0,4) - 1) + m.slice(4);
 const chRows = (rows, m) => rows.filter(x => x.d.slice(0,7) === m);
 const chChg = (cur, ref) => ref ? pctH(cur, ref) : '<span style="color:var(--mute)">-</span>';
 function chDays(m, ch) {   // แชทรายวันของเดือน m ตามช่องทาง (รวม = เฉพาะวันที่มีทั้ง Facebook และ Shopee)
@@ -846,7 +858,47 @@ function renderChat() {
   }
 }
 
+const dateTh = d => new Date(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
 const fmtZ = n => n ? fmt(n) : '-';
+
+/* ===== สินค้าไม่หมุนเวียน: รุ่นที่เคยขายได้ แต่ไม่มียอดนับถึงวันที่อ้างอิง (ตัดรุ่นที่ขายครั้งเดียวและรุ่นพรีออเดอร์) ===== */
+function calcDead(refD) {
+  const dayN = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 864e5;
+  const g = group(ROWS.filter(r => r.date && r.date <= refD && r.prod && r.qty > 0), r => r.prod, () => ({ last: '', lr: null, q: 0, v: 0, rs: [], pre: false }),
+    (a, r) => { if (r.date > a.last) { a.last = r.date; a.lr = r; } a.q += r.qty; a.v += r.net; a.rs.push(r); if (r.pre) a.pre = true; });
+  let one = 0, pre = 0;
+  const list = [...g].map(([k, a]) => ({ k, last: a.last, idle: dayN(refD) - dayN(a.last), q: a.q, v: a.v, o: nOrd(a.rs), pre: a.pre,
+    cat: a.lr.cat || '(ไม่ระบุ)', typ: a.lr.typ || '(ไม่ระบุ)', grp: a.lr.grp || '(ไม่ระบุ)' }))
+    .filter(x => { if (x.pre) { pre++; return false; } if (x.o <= 1) { one++; return false; } return true; }).sort((a, b) => b.idle - a.idle || b.v - a.v);
+  return { list, one, pre };
+}
+function renderDead() {
+  if (!DBRNG.max) { $('dd-tbl').innerHTML = ''; $('dd-kpi').innerHTML = ''; $('dd-note').textContent = 'ไม่มีข้อมูล'; return; }
+  const { list, one, pre } = calcDead(DBRNG.max), sel = Object.fromEntries(CATS.map(c => [c.k, $('dd-' + c.k).value]));
+  const fl = list.filter(x => x.idle > 30 && CATS.every(c => sel[c.k] === 'all' || x[c.k] === sel[c.k]));
+  $('sub').textContent = 'นับถึง ' + dateTh(DBRNG.max);
+  $('dd-kpi').innerHTML = [['รุ่นที่ไม่มียอดเกิน 30 วัน', fmt(fl.length) + ' รุ่น', '--c1'], ['ในนั้นเงียบเกิน 90 วัน', fmt(fl.filter(x => x.idle > 90).length) + ' รุ่น', '--c2'], ['ยอดเงินรวมในอดีตของรุ่นเหล่านี้', money(anSum(fl.map(x => x.v))), '--c3']]
+    .map(([l, v, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${v}</div></div>`).join('');
+  $('dd-note').textContent = `แสดงเฉพาะรุ่นที่ไม่มียอดเกิน 30 วันนับถึง ${dateTh(DBRNG.max)} · ตัดออก: รุ่นที่ขายครั้งเดียวในประวัติ ${fmt(one)} รุ่น และรุ่นที่เคยเป็นพรีออเดอร์ ${fmt(pre)} รุ่น · หมวด/ประเภท/กลุ่มใช้ค่าจากรายการขายล่าสุดของรุ่นนั้น · ระบบไม่มีข้อมูลสต็อก จึงบอกได้แค่ "ขายไม่ออก" ไม่ใช่ "ค้างสต็อก" และรุ่นที่ไม่เคยขายเลยจะไม่อยู่ในรายการ`;
+  const heads = ['#', 'รุ่น', 'หมวด', 'ประเภท', 'กลุ่ม', 'ขายล่าสุด', 'ไม่เคลื่อนไหว (วัน)', 'ชิ้นรวมในอดีต', 'ยอดเงินรวมในอดีต (฿)'];
+  $('dd-tbl').innerHTML = '<tr>' + heads.map((h, i) => `<th class="${i >= 5 ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
+    (fl.length ? fl.map((x, i) => '<tr>' + [i + 1, x.k, x.cat, x.typ, x.grp, dateTh(x.last), fmt(x.idle), fmt(x.q), fmt(x.v)].map((c, j) => `<td class="${j >= 5 ? 'r' : ''}">${esc(c)}</td>`).join('') + '</tr>').join('')
+      : `<tr><td class="empty" colspan="${heads.length}">ไม่พบรุ่นที่ไม่มียอดเกิน 30 วันตามตัวกรองนี้</td></tr>`);
+}
+
+/* ===== รายงานยอดคงค้างทั้งหมด (ทุกแถวที่ยอดคงค้าง > 0 ไม่จำกัดเดือน) ===== */
+function renderDebt() {
+  const rs = ROWS.filter(r => r.ar > 0), tot = rs.reduce((a, r) => a + r.ar, 0);
+  const list = [...group(rs, r => r.cust || 'ไม่ระบุ', () => ({ v: 0, rs: [] }), (a, r) => { a.v += r.ar; a.rs.push(r); })].map(([k, a]) => ({ k, v: a.v, o: nOrd(a.rs) })).sort((a, b) => b.v - a.v);
+  $('sub').textContent = DBRNG.max ? 'ข้อมูลถึง ' + dateTh(DBRNG.max) : '';
+  $('debt-kpi').innerHTML = [['ยอดคงค้างรวม', money(tot), '--c1'], ['ลูกค้าที่มียอดค้าง', fmt(list.length) + ' ราย', '--c2'], ['ออเดอร์ที่ยังค้าง', fmt(nOrd(rs)), '--c3']]
+    .map(([l, v, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${v}</div></div>`).join('');
+  $('debt-note').textContent = 'นับทุกรายการที่ช่อง "ยอดคงค้าง" มากกว่า 0 ทุกเดือนรวมกัน · ไม่นับแถวที่ยกเลิกใน Shopee · สัดส่วน = ยอดค้างของลูกค้า ÷ ยอดคงค้างรวม';
+  const mx = list.length ? list[0].v : 1, heads = ['#', 'ลูกค้า', 'ออเดอร์ที่ค้าง', 'ยอดคงค้าง (฿)', 'สัดส่วน'];
+  $('debt-tbl').innerHTML = '<tr>' + heads.map((h, i) => `<th class="${i > 1 ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
+    (list.length ? list.map((x, i) => `<tr><td>${i + 1}</td><td>${esc(x.k)}</td><td class="r">${fmt(x.o)}</td><td class="r">${fmt(x.v)}</td><td class="r" style="min-width:140px">${(x.v / (tot || 1) * 100).toFixed(1)}%<div class="mb"><span style="width:${(x.v / mx * 100).toFixed(1)}%"></span></div></td></tr>`).join('')
+      : `<tr><td class="empty" colspan="${heads.length}">ไม่มียอดคงค้าง</td></tr>`);
+}
 const nOrd = rs => new Set(rs.map(r => r.order)).size;   // นับตามเลขที่คำสั่งซื้อไม่ซ้ำ (แถวที่ไม่มีเลขที่ นับเป็นรายการละ 1)
 
 /* ===== ประเภทการติดต่อ (ในหน้ารายช่องทางขาย) ===== */
@@ -991,7 +1043,7 @@ const predInt = (r, x0) => { const h = T95(r.n - 2) * r.s * Math.sqrt(1 + 1 / r.
 function pearson(xs, ys) { const n = xs.length; if (n < 3) return null; const mx = anMean(xs), my = anMean(ys); let sxy = 0, sxx = 0, syy = 0; xs.forEach((x, i) => { sxy += (x - mx) * (ys[i] - my); sxx += (x - mx) ** 2; syy += (ys[i] - my) ** 2; }); return sxx && syy ? sxy / Math.sqrt(sxx * syy) : null; }
 const mNext = m => { const k = +m.slice(0,4) * 12 + +m.slice(5,7); return Math.floor(k / 12) + '-' + String(k % 12 + 1).padStart(2, '0'); };
 const confBadge = lv => `<span class="cf ${lv === 'สูง' ? 'hi' : lv === 'ปานกลาง' ? 'md' : 'lo'}">ความเชื่อมั่น: ${lv}</span>`;
-const NUM = { 1: 1, 2: 2, 6: 3, 4: 4, 5: 5, h: 6, d: 7, 7: 8, 3: 9, 8: 10, 9: 11 };   // ลำดับการ์ดที่แสดง
+const NUM = { 1: 1, 2: 2, 6: 3, 4: 4, 5: 5, h: 6, 7: 7, 3: 8, 8: 9, 9: 10 };   // ลำดับการ์ดที่แสดง
 const anCard = (no, title, conf, head, chips, chartId, interp, rec, formula, extra) => `<div class="card" data-k="${no}"><div class="an-h"><h2>${NUM[no]}. ${title}</h2>${conf ? confBadge(conf) : ''}</div><p class="an-head">${head}</p>` +
   (chips && chips.length ? '<div class="chips">' + chips.map(([l, v]) => `<div class="chip">${l}<b>${v}</b></div>`).join('') + '</div>' : '') + (chartId ? `<div id="${chartId}"></div>` : '') + (extra || '') +
   `<p class="an-int"><b>แปลผล:</b> ${interp}</p>` + (rec ? `<p class="an-rec"><b>ข้อเสนอแนะ:</b> ${rec}</p>` : '') + `<details><summary>สูตรและตัวเลขที่ใช้</summary><div class="fm">${formula}</div></details></div>`;
@@ -1011,8 +1063,8 @@ function renderAn() {
   let M = $('an-mon').value; if (!months.includes(M)) M = months[months.length - 1];
   const hist = months.filter(m => m <= M), P = mPrev(M), hasP = hist.includes(P), n = hist.length, y = hist.map(m => net(rowsOf(m))), cur = y[n - 1], mname = monthName(M);
   $('sub').textContent = mname; $('an-note').textContent = `ใช้ข้อมูลเดือนที่ครบ ${n} เดือน (${mShort(hist[0])} – ${mShort(M)})`;
-  const cards = [], charts = [], S = [];
-  let chInfo = null, volInfo = null, fcInfo = null, leadInfo = null, heroInfo = null, deadInfo = null;   // S = ข้อสรุปผู้บริหาร [tone, text]
+  const cards = [], charts = [];
+  let chInfo = null, volInfo = null, fcInfo = null, leadInfo = null, heroInfo = null;   // S = ข้อสรุปผู้บริหาร [tone, text]
 
   // ---- 1) แนวโน้ม ----
   const reg = linReg(y), avgY = anMean(y), slopePct = avgY ? reg.b / avgY * 100 : 0, sig = n >= 4 && Math.abs(reg.tb) >= T95(n - 2);
@@ -1028,16 +1080,14 @@ function renderAn() {
       `<b>ถดถอยเชิงเส้น</b> ยอด = a + b·t (t = 0…${n - 1})<br>a = ${fmt(reg.a)} · b = ${fmt(reg.b)} บาท/เดือน · R² = ${reg.r2.toFixed(3)} · ค่า t ของความชัน = ${reg.tb.toFixed(2)} (เกณฑ์ 95% ที่ df=${n - 2}: ${T95(n - 2)})<br><b>CMGR</b> = (ยอดเดือนล่าสุด ÷ ยอดเดือนแรก)^(1 ÷ ${n - 1}) − 1<br><b>เฉลี่ยเคลื่อนที่ 3 เดือน</b> = ค่าเฉลี่ยของ 3 เดือนล่าสุด<br>ความเชื่อมั่น: สูง = ≥12 เดือนและ R² ≥ 0.5 · ปานกลาง = ≥6 เดือนและ R² ≥ 0.3 · นอกนั้นต่ำ`));
     charts.push(() => { lines2('an-c1', [{ name: 'ยอดสุทธิ', color: '--c1', pts: hist.map((m, i) => ({ label: mShort(m), v: y[i] })) }, { name: 'เส้นแนวโน้ม', color: '--c2', nodots: true, pts: hist.map((m, i) => ({ label: mShort(m), v: reg.fit[i] })) }], money, short, { nonote: true, r: 3 });
       $('an-c1').insertAdjacentHTML('beforeend', '<div class="lg"><span><i style="background:var(--c1)"></i>ยอดสุทธิ</span><span><i style="background:var(--c2)"></i>เส้นแนวโน้ม</span></div>'); });
-    S.push([sig ? (reg.b > 0 ? 'good' : 'bad') : 'warn', `แนวโน้มยอดขาย${dirTxt}: ${sgn(reg.b)}/เดือน (R² ${reg.r2.toFixed(2)}, ความเชื่อมั่น${tConf})`]);
   }
-  if (hasP) { const dv = cur - y[n - 2]; S.unshift([dv >= 0 ? 'good' : 'bad', `ยอดสุทธิ ${mname} ${money(cur)} · ${pl(cur, y[n - 2])} จากเดือนก่อน (${sgn(dv)})`]); }
 
   // ---- 2) พยากรณ์เดือนถัดไป ----
   const nxt = mNext(M), fc = n >= 4 ? predInt(reg, n) : null, w = fc ? (fc.hi - fc.lo) / Math.max(fc.p, 1) : null;
   const fConf = !fc ? 'ต่ำ' : n >= 12 && reg.r2 >= .5 && w < .4 ? 'สูง' : n >= 6 && reg.r2 >= .3 && w < .8 ? 'ปานกลาง' : 'ต่ำ', L = (DBRNG.max || '').slice(0, 7);
   let rr = '';
   if (L && L > M && !monthDone(L, DBRNG) && +DBRNG.max.slice(8, 10) >= 5) { const dd = +DBRNG.max.slice(8, 10), mtd = net(rowsOf(L)), proj = mtd / dd * mDim(L);
-    rr = `<p class="an-int"><b>เดือน ${monthName(L)} (ยังไม่ครบ):</b> ยอดสะสม ${money(mtd)} ใน ${dd} วัน → ถ้าขายเฉลี่ยรายวันเท่าเดิม คาดปิดที่ ${money(proj)} (Run-rate = ยอดสะสม ÷ ${dd} × ${mDim(L)} วัน ไม่คิดวันพีคหรือแคมเปญ)</p>`; S.push(['warn', `${monthName(L)} ยังไม่ครบเดือน: Run-rate คาดปิด ${money(proj)}`]); }
+    rr = `<p class="an-int"><b>เดือน ${monthName(L)} (ยังไม่ครบ):</b> ยอดสะสม ${money(mtd)} ใน ${dd} วัน → ถ้าขายเฉลี่ยรายวันเท่าเดิม คาดปิดที่ ${money(proj)} (Run-rate = ยอดสะสม ÷ ${dd} × ${mDim(L)} วัน ไม่คิดวันพีคหรือแคมเปญ)</p>`; }
   if (fc) {
     const lo = Math.max(0, Math.min(fc.lo, cur) * .95), hi = Math.max(fc.hi, cur) * 1.05, pos = v => ((v - lo) / (hi - lo) * 100).toFixed(1);
     const bar = `<div class="rb"><i class="r" style="left:${pos(Math.max(fc.lo, lo))}%;width:${(pos(fc.hi) - pos(Math.max(fc.lo, lo))).toFixed(1)}%"></i><i class="p" style="left:${pos(fc.p)}%"></i><i class="a" style="left:${pos(cur)}%"></i></div><div class="sub">แถบสีม่วง = ช่วง 95% · เส้นม่วง = ค่าพยากรณ์ · เส้นชมพู = ยอด ${mShort(M)}</div>`;
@@ -1046,7 +1096,6 @@ function renderAn() {
       `พยากรณ์จากเส้นแนวโน้มเชิงเส้นของ ${n} เดือน ช่วงที่ให้เป็นช่วงทำนาย 95% (ความจริงมีโอกาส ~95% อยู่ในช่วงนี้ ถ้ารูปแบบเดิมยังคงอยู่) ` + (fConf === 'ต่ำ' ? 'ช่วงกว้างหรือข้อมูลน้อย ควรใช้เป็นแนวทางคร่าว ๆ เท่านั้น ' : '') + 'ไม่ได้รวมฤดูกาล วันหยุดยาว หรือแคมเปญที่จะเกิดขึ้น',
       'ใช้ช่วงพยากรณ์ในการวางเป้าและสต็อก: เป้าขั้นต่ำใช้ขอบล่าง เป้าท้าทายใช้ขอบบน และปรับเมื่อมีแคมเปญใหญ่ (เช่น 10.10, 11.11)',
       `ค่าพยากรณ์ ŷ = a + b·${n} = ${fmt(fc.p)}<br>ช่วงทำนาย 95% = ŷ ± t(df=${n - 2}) · s · √(1 + 1/n + (t₀ − t̄)²/Sxx) = ${T95(n - 2)} × ${fmt(reg.s)} × √(…)<br>ความเชื่อมั่น: สูง = ≥12 เดือน R² ≥ 0.5 และช่วงกว้าง < 40% · ปานกลาง = ≥6 เดือน R² ≥ 0.3 และช่วงกว้าง < 80% · นอกนั้นต่ำ`, bar + rr));
-    S.push([fConf === 'ต่ำ' ? 'warn' : 'info', `พยากรณ์ ${monthName(nxt)}: ประมาณ ${money(fc.p)} (ช่วง ${moneyS(Math.max(0, fc.lo))}–${moneyS(fc.hi)}, ความเชื่อมั่น${fConf})`]);
   } else cards.push(anCard(2, 'พยากรณ์ยอดขายเดือนถัดไป', 'ต่ำ', 'ข้อมูลน้อยเกินไปสำหรับพยากรณ์', [], '', 'ต้องมีเดือนที่ข้อมูลครบอย่างน้อย 4 เดือน จึงจะคำนวณช่วงความไม่แน่นอนได้อย่างมีความหมาย', '', 'ต้องมี n ≥ 4 เดือน', rr));
 
   // ---- 3) ความผิดปกติ ----
@@ -1061,7 +1110,6 @@ function renderAn() {
     (zM == null ? '' : `· ยอดทั้งเดือนเมื่อเทียบกับเดือนก่อน ๆ ถือว่า${Math.abs(zM) < 1 ? 'ปกติ' : Math.abs(zM) < 2 ? 'ค่อนข้างต่างจากปกติ' : 'ผิดปกติ'}`) + '.',
     flagged.some(x => x.z > 0) ? 'ตรวจว่าวันที่ยอดพุ่งมาจากแคมเปญหรือออเดอร์ใหญ่ครั้งเดียว ถ้าเป็นแคมเปญ ควรวางแผนซ้ำ' : flagged.length ? 'ตรวจสาเหตุวันที่ยอดต่ำผิดปกติ เช่น ระบบ สต็อก หรือวันหยุด' : '', 
     `<b>z-score</b> = (ยอดวันนั้น − ค่าเฉลี่ยรายวันของเดือน) ÷ ส่วนเบี่ยงเบนมาตรฐาน · เกณฑ์ |z| ≥ 2<br>ค่าเฉลี่ย ${fmt(dm)} · SD ${fmt(ds)} · จำนวนวัน ${dim}`, fl));
-  if (flagged.length) S.push(['warn', `${mname} มี ${flagged.length} วันที่ยอดผิดปกติ (สูงสุด ${dayName(flagged[0].d)} z = ${flagged[0].z.toFixed(1)})`]);
 
   // ---- 4) ช่องทาง ----
   if (hasP) {
@@ -1074,24 +1122,17 @@ function renderAn() {
       `เทียบ ${mShort(M)} กับ ${mShort(P)}: ยอดรวม ${pl(tM, tP)} โดย ${esc(up.k)} เป็นตัวขับหลัก ` + (dn.d < 0 ? `ส่วน ${esc(dn.k)} เป็นตัวฉุด ` : '') + `· ยอดขายพึ่งพา ${esc(top1.k)} ราว ${(top1.v1 / (tM || 1) * 100).toFixed(0)}% ดัชนีกระจุกตัวอยู่ระดับ${hl}.`,
       hhi >= 2500 || top1.v1 / (tM || 1) > .5 ? 'พึ่งพาช่องทางเดียวสูง ควรเพิ่มสัดส่วนช่องทางรองเพื่อลดความเสี่ยง หากช่องทางหลักมีปัญหา' : dn.d < 0 ? `ตรวจสาเหตุที่ ${esc(dn.k)} ลดลง (ราคา สต็อก โปรโมชัน หรือคู่แข่ง) และพิจารณาดึงกลับ` : 'ช่องทางกระจายตัวดี ควรรักษาสมดุลนี้ไว้',
       `<b>ส่วนร่วม (Contribution)</b> = (ยอดช่องทางเดือนนี้ − เดือนก่อน) ÷ (ยอดรวมเดือนนี้ − เดือนก่อน)<br><b>HHI</b> = Σ (สัดส่วนช่องทาง %)² → < 1,500 กระจาย · 1,500–2,500 ปานกลาง · > 2,500 กระจุกตัวสูง<br>ค่า HHI = ${fmt(hhi)}`, tb));
-    S.push([hhi >= 2500 || top1.v1 / (tM || 1) > .5 ? 'warn' : 'info', `ช่องทาง: ${esc(up.k)} ดันยอด ${sgn(up.d)}; พึ่งพา ${esc(top1.k)} ${(top1.v1 / (tM || 1) * 100).toFixed(0)}% (HHI ${fmt(hhi)} ${hl})`]);
   }
 
   // ---- 5) สินค้า (Pareto + ตัวขึ้น/ตัวตก) ----
   const pOf = r => r.prod || 'ไม่ระบุ', pm = [...group(rowsOf(M), pOf, () => ({ v: 0 }), (o, r) => o.v += r.net)].map(([k, o]) => ({ k, v: o.v })).sort((a, b) => b.v - a.v), tot = anSum(pm.map(x => x.v)) || 1;
   let cum = 0, k80 = 0, k95 = 0; pm.forEach((x, i) => { cum += x.v; if (!k80 && cum / tot >= .8) k80 = i + 1; if (!k95 && cum / tot >= .95) k95 = i + 1; });
   const top10 = anSum(pm.slice(0, 10).map(x => x.v)) / tot * 100;
-  let mv = '', mvTxt = '';
-  if (hasP) { const pp = group(rowsOf(P), pOf, () => ({ v: 0 }), (o, r) => o.v += r.net), pmM = new Map(pm.map(x => [x.k, x.v])), keys = new Set([...pmM.keys(), ...pp.keys()]), thr = net(rowsOf(P)) * .005;
-    const dl = [...keys].map(k => ({ k, d: (pmM.get(k) || 0) - (pp.has(k) ? pp.get(k).v : 0) })).filter(x => Math.abs(x.d) >= thr), ups = dl.filter(x => x.d > 0).sort((a, b) => b.d - a.d).slice(0, 3), dns = dl.filter(x => x.d < 0).sort((a, b) => a.d - b.d).slice(0, 3);
-    mv = '<div class="scroll"><table>' + tableHtml(['ตัวขึ้นแรง', 'เปลี่ยน (฿)', 'ตัวตกแรง', 'เปลี่ยน (฿)'], [0, 1, 2].map(i => [ups[i] ? ups[i].k : '-', ups[i] ? '+' + fmt(ups[i].d) : '', dns[i] ? dns[i].k : '-', dns[i] ? fmt(dns[i].d) : ''])) + '</table></div>';
-    mvTxt = ups[0] ? ` ตัวขึ้นแรงสุดคือ ${esc(ups[0].k)} (+${fmt(ups[0].d)})` : ''; mvTxt += dns[0] ? ` ตัวตกแรงสุดคือ ${esc(dns[0].k)} (${fmt(dns[0].d)})` : ''; }
-  cards.push(anCard(5, 'สินค้า: กฎ 80/20 และตัวขึ้น/ตัวตก', 'สูง', `${k80} จาก ${pm.length} รุ่น ทำยอดถึง 80% ของ ${mname}`,
+  cards.push(anCard(5, 'สินค้า: กฎ 80/20', 'สูง', `${k80} จาก ${pm.length} รุ่น ทำยอดถึง 80% ของ ${mname}`,
     [['รุ่นที่ขายได้', fmt(pm.length)], ['รุ่นที่ทำยอด 80%', fmt(k80)], ['10 อันดับแรก', top10.toFixed(0) + '% ของยอด'], ['รุ่นที่ทำยอด 95%', fmt(k95)]], '',
-    `ยอดขายกระจุกตัวที่สินค้ากลุ่มเล็ก: ${(k80 / Math.max(pm.length, 1) * 100).toFixed(0)}% ของรุ่นทั้งหมดสร้างยอด 80%` + mvTxt + '.',
+    `ยอดขายกระจุกตัวที่สินค้ากลุ่มเล็ก: ${(k80 / Math.max(pm.length, 1) * 100).toFixed(0)}% ของรุ่นทั้งหมดสร้างยอด 80%` + '.',
     'โฟกัสสต็อก โปรโมชัน และการสื่อสารกับรุ่นกลุ่ม A (ที่ทำยอด 80%) ส่วนรุ่นท้ายตารางที่ขายน้อยควรทบทวนว่าจะลดสต็อกหรือรวมเป็นชุดขาย',
-    `<b>Pareto</b>: เรียงรุ่นตามยอดสุทธิจากมากไปน้อย สะสมสัดส่วนจนถึง 80% / 95%<br>ยอดรวมที่ใช้ ${fmt(tot)} บาท · ตัวขึ้น/ตัวตกนับเฉพาะรุ่นที่เปลี่ยนไม่น้อยกว่า 0.5% ของยอดเดือนก่อน`, mv));
-  S.push(['info', `สินค้า: ${k80} จาก ${pm.length} รุ่น ทำยอด 80%; 10 อันดับแรก ${top10.toFixed(0)}% ของยอด`]);
+    `<b>Pareto</b>: เรียงรุ่นตามยอดสุทธิจากมากไปน้อย สะสมสัดส่วนจนถึง 80% / 95%<br>ยอดรวมที่ใช้ ${fmt(tot)} บาท`));
 
   // ---- 5.1) สินค้า Hero: ตัวดันยอด / ตัวที่ยอดตก ----
   if (hasP) {
@@ -1115,24 +1156,6 @@ function renderAn() {
       `ส่วนต่าง = ยอดสุทธิรุ่นนั้นเดือนนี้ − เดือนก่อน · นับเฉพาะรุ่นที่เปลี่ยนไม่น้อยกว่า 0.5% ของยอดรวมเดือนก่อน (${fmt(thr)} บาท)<br>% ของยอดที่เพิ่ม = ส่วนต่างของรุ่น ÷ ผลรวมส่วนต่างของทุกรุ่นที่เพิ่มขึ้น (${fmt(sumUp)} บาท) · % ของยอดที่ลด คิดแบบเดียวกันกับรุ่นที่ลดลง (${fmt(sumDn)} บาท)<br>รุ่นใหม่ = เดือนก่อนไม่มียอด`, t1 + t2 + nt));
   } else cards.push(anCard('h', 'สินค้า Hero และสินค้ายอดตก', 'ต่ำ', 'ยังไม่มีเดือนก่อนที่ข้อมูลครบให้เทียบ', [], '', 'ต้องมีเดือนก่อนหน้าที่ข้อมูลครบ จึงจะหาสินค้าที่ดันยอดหรือยอดตกได้', '', 'ต้องมีข้อมูลเดือนก่อนหน้า'));
 
-  // ---- 5.2) สินค้าไม่หมุนเวียน 5 อันดับ ----
-  {
-    const refD = DBRNG.max && DBRNG.max.slice(0, 7) <= M ? DBRNG.max : M + '-' + String(mDim(M)).padStart(2, '0');
-    const dayN = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 864e5, dTh = d => new Date(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
-    const xrows = ROWS.filter(r => r.date && r.date <= refD && r.prod && r.qty > 0);
-    const xg = group(xrows, r => r.prod, () => ({ last: '', q: 0, v: 0, rs: [], pre: false }), (a, r) => { if (r.date > a.last) a.last = r.date; a.q += r.qty; a.v += r.net; a.rs.push(r); if (r.pre) a.pre = true; });
-    let xOne = 0, xPre = 0;
-    const xl = [...xg].map(([k, a]) => ({ k, last: a.last, idle: dayN(refD) - dayN(a.last), q: a.q, v: a.v, o: nOrd(a.rs), pre: a.pre }))
-      .filter(x => { if (x.pre) { xPre++; return false; } if (x.o <= 1) { xOne++; return false; } return true; }).sort((a, b) => b.idle - a.idle || b.v - a.v);
-    const xtop = xl.slice(0, 5); deadInfo = { list: xtop, refD };
-    cards.push(anCard('d', 'สินค้าไม่หมุนเวียน 5 อันดับ', 'ปานกลาง',
-      xtop.length ? `รุ่นที่เงียบนานที่สุดคือ ${esc(xtop[0].k)} (ไม่มียอดมา ${fmt(xtop[0].idle)} วัน)` : 'ไม่พบรุ่นที่เข้าเกณฑ์',
-      [['รุ่นที่เข้าเกณฑ์', fmt(xl.length)], ['เงียบเกิน 30 วัน', fmt(xl.filter(x => x.idle >= 30).length) + ' รุ่น'], ['เงียบเกิน 60 วัน', fmt(xl.filter(x => x.idle >= 60).length) + ' รุ่น'], ['นับถึงวันที่', dTh(refD)]], '',
-      'รุ่นเหล่านี้เคยขายได้ แต่ไม่มียอดมานานที่สุด จึงเป็นกลุ่มที่ควรทบทวนก่อน ข้อควรระวัง: ระบบมีเฉพาะข้อมูลการขาย ไม่มีข้อมูลสต็อก จึงบอกได้แค่ "ขายไม่ออก" ไม่ใช่ "ค้างสต็อก" และรุ่นที่ไม่เคยขายเลยจะไม่อยู่ในรายการ',
-      xtop.length && xtop[0].idle >= 30 ? 'ตรวจสต็อกจริงของรุ่นเหล่านี้ แล้วระบายด้วยโปรโมชัน จัดเป็นชุดขาย หรือพิจารณาเลิกสั่งเพิ่ม' : 'ตอนนี้ยังไม่มีรุ่นที่เงียบเกิน 30 วัน ไม่ต้องดำเนินการเร่งด่วน',
-      `ไม่เคลื่อนไหว (วัน) = วันที่ข้อมูลถึง (${refD}) − วันที่ขายล่าสุดของรุ่นนั้น · นับเฉพาะแถวที่ขายได้ ≥ 1 ชิ้นและไม่ใช่แถวที่ยกเลิก<br>ตัดออก: รุ่นที่ขายครั้งเดียวในประวัติ ${fmt(xOne)} รุ่น และรุ่นที่เคยเป็นพรีออเดอร์ ${fmt(xPre)} รุ่น · เรียงจากเงียบนานสุด ถ้าเท่ากันเรียงตามยอดเงินรวมมากไปน้อย`,
-      '<div class="scroll"><table>' + tableHtml(['รุ่น', 'ขายล่าสุด', 'ไม่เคลื่อนไหว (วัน)', 'ชิ้นรวมในอดีต', 'ยอดเงินรวมในอดีต (฿)'], xtop.map((x, i) => [(i + 1) + '. ' + x.k, dTh(x.last), fmt(x.idle), fmt(x.q), fmt(x.v)])) + '</table></div>'));
-  }
 
   // ---- 6) ยอด = ออเดอร์ × AOV ----
   if (hasP) {
@@ -1142,7 +1165,6 @@ function renderAn() {
       `การเปลี่ยนของยอดขายส่วนใหญ่มาจาก${big} (${sgn(Math.abs(vol) >= Math.abs(prc) ? vol : prc)}) ` + (Math.abs(vol) >= Math.abs(prc) ? 'แปลว่าลูกค้า/ใบสั่งซื้อมากขึ้นหรือน้อยลง มากกว่าการซื้อต่อใบที่เปลี่ยนไป' : 'แปลว่ามูลค่าต่อใบเปลี่ยน เช่น สินค้าราคาสูงขายดีขึ้น/ลดลง หรือส่วนลดเปลี่ยน') + '.',
       Math.abs(vol) >= Math.abs(prc) ? 'ถ้าต้องการเพิ่มยอด ให้เน้นดึงออเดอร์ (โฆษณา ติดตาม Lead) พร้อมดันชุดสินค้าเพื่อเพิ่ม AOV' : 'ถ้าต้องการเพิ่มยอด ให้ดูโครงสร้างสินค้า/ส่วนลดที่ทำให้ AOV เปลี่ยน และดันสินค้าราคาสูง',
       `ยอด = ออเดอร์ × AOV · ผลจากจำนวนออเดอร์ = (O₁ − O₀) × A₀ = (${fmt(O1)} − ${fmt(O0)}) × ${fmt(A0)}<br>ผลจาก AOV = (A₁ − A₀) × O₁ = (${fmt(A1)} − ${fmt(A0)}) × ${fmt(O1)} · รวมกันเท่ากับยอดที่เปลี่ยนพอดี (${fmt(N1 - N0)} บาท)`));
-    S.push([N1 >= N0 ? 'info' : 'warn', `ยอดเปลี่ยนส่วนใหญ่มาจาก${big} (ออเดอร์ ${pl(O1, O0)}, AOV ${pl(A1, A0)})`]);
   }
 
   // ---- 7) รูปแบบตามช่วงเวลา ----
@@ -1157,7 +1179,6 @@ function renderAn() {
     `จัดทีมตอบแชท/สต็อก/โฆษณาให้หนักในวัน${dnF[hiI]} และช่วง${pn[pbest].split(' ')[0]} ส่วนวัน${dnF[loI]}เหมาะกับงานเตรียมของหรือโปรโมชันกระตุ้นยอด`,
     `<b>ดัชนีวัน</b> = ยอดเฉลี่ยของวันนั้นในสัปดาห์ ÷ ยอดเฉลี่ยต่อวันทั้งหมด × 100 (ใช้ ${n} เดือน รวมวันที่ไม่มียอดเป็น 0)<br><b>ช่วงเดือน</b> = ยอดเฉลี่ยต่อวันของวันที่ 1–10 / 11–20 / 21–สิ้นเดือน เฉลี่ยข้ามเดือน`));
   charts.push(() => gbars('an-c7', dn7, [{ name: 'ดัชนียอดขายตามวัน (100 = เฉลี่ย)', color: '--c1', vals: di }], v => Math.round(v)));
-  S.push(['info', `รูปแบบ: ${dnF[hiI]}ขายดีสุด (ดัชนี ${di[hiI].toFixed(0)}), ช่วง${pn[pbest].split(' ')[0]}แรงสุด`]);
 
   // ---- 8) Lead ----
   const ld = LEADS.filter(r => r.date), ldM = ld.filter(r => r.date.startsWith(M)), ldP = ld.filter(r => r.date.startsWith(P));
@@ -1171,7 +1192,6 @@ function renderAn() {
       `จาก Lead ${fmt(ldM.length)} ราย ปิดการขายได้ ${r1.toFixed(1)}%` + (og.length >= 2 ? ` · เจ้าหน้าที่ที่อัตราปิดสูงสุดคือ ${esc(og[0].k)} (${og[0].r.toFixed(0)}%) ต่ำสุดคือ ${esc(og[og.length - 1].k)} (${og[og.length - 1].r.toFixed(0)}%) ` + (og[0].r - og[og.length - 1].r >= 15 ? 'ต่างกันชัดเจน' : 'ต่างกันไม่มาก') : '') + '. ตัวอย่างต่อคนยังน้อย อย่าใช้เปรียบเทียบเป็นข้อสรุปเด็ดขาด',
       og.length >= 2 && og[0].r - og[og.length - 1].r >= 15 ? `ให้ ${esc(og[0].k)} แชร์วิธีติดตาม/ปิดการขายกับทีม และทบทวนวิธีติดตามของ ${esc(og[og.length - 1].k)}` : 'รักษากระบวนการติดตามลูกค้า และเพิ่ม Lead จากช่องทางที่ปิดการขายได้ดี',
       `อัตราปิดการขาย = Lead ที่ "ซื้อแล้ว" ÷ Lead ทั้งหมดของเดือน · เทียบเดือนก่อนเป็น "จุดเปอร์เซ็นต์"<br>รายคนแสดงเฉพาะผู้มี Lead ≥ 10 ราย (นับ Lead ที่ลงชื่อ 2 คนให้ทั้งสองคน)`, ot));
-    S.push([dPt == null ? 'info' : dPt >= 0 ? 'good' : 'bad', `Lead ${mShort(M)}: ${fmt(ldM.length)} ราย ปิดการขาย ${r1.toFixed(1)}%` + (dPt == null ? '' : ` (${dPt >= 0 ? '+' : '−'}${Math.abs(dPt).toFixed(1)} จุด)`)]);
   } else cards.push(anCard(8, 'Lead และอัตราปิดการขาย', 'ต่ำ', 'ไม่มีข้อมูล Lead ที่ครบเดือนนี้', [], '', 'ข้อมูล Lead ของเดือนที่เลือกยังไม่มีหรือยังไม่ครบเดือน จึงไม่วิเคราะห์เพื่อกันตัวเลขเพี้ยน', '', 'ต้องมีข้อมูล Lead ครบเดือน'));
 
   // ---- 9) แชท ----
@@ -1185,18 +1205,19 @@ function renderAn() {
       r == null ? 'ข้อมูลไม่พอ' : `จากข้อมูล ${nd} วัน ` + (Math.abs(r) < .3 ? 'วันที่แชทเยอะไม่ได้แปลว่ายอดขายสูงตามเสมอไป' : r > 0 ? 'วันที่แชทเพิ่มขึ้น ยอดขายมีแนวโน้มเพิ่มตาม' : 'วันที่แชทเพิ่มขึ้น ยอดขายกลับมีแนวโน้มลดลง') + ' (เป็นความสัมพันธ์ ไม่ใช่การพิสูจน์ว่าแชทเป็นสาเหตุของยอดขาย)' + (aM != null && aP != null ? ` · แชทเฉลี่ยต่อวัน ${pl(aM, aP)} จากเดือนก่อน` : '') + '.',
       Math.abs(r || 0) >= .3 ? 'ใช้ปริมาณแชทเป็นสัญญาณนำ: ถ้าแชทลดลงให้เร่งโฆษณา/โพสต์ และเตรียมคนตอบแชทให้ทันช่วงแชทพุ่ง' : 'ดูคุณภาพการตอบและอัตราปิดการขายควบคู่ ไม่ควรวัดผลจากจำนวนแชทอย่างเดียว',
       `<b>Pearson r</b> = Σ(x−x̄)(y−ȳ) ÷ √(Σ(x−x̄)² · Σ(y−ȳ)²) · x = แชทรวม (Facebook + Shopee) ต่อวัน, y = ยอดสุทธิต่อวัน · |r| < 0.3 อ่อน · 0.3–0.5 ปานกลาง · > 0.5 ค่อนข้างแรง<br>ใช้เฉพาะวันที่มีข้อมูลแชททั้ง 2 ช่องทาง (${nd} วัน)`));
-    if (r != null) S.push(['info', `แชท: สัมพันธ์กับยอดขายระดับ${lv} (r = ${rs}, ${nd} วัน)`]);
   } else cards.push(anCard(9, 'แชทกับยอดขาย', 'ต่ำ', 'ไม่มีข้อมูลแชทเพียงพอ', [], '', 'ต้องมีข้อมูลแชทที่ตรงกับวันที่ขายอย่างน้อย 5 วัน จึงจะคำนวณความสัมพันธ์ได้', '', 'ต้องมีข้อมูลแท็บแชท'));
 
   // ---- ชั้นที่ 1: สรุป 5 นาที ----
   $('an-top').hidden = false;
   const CONFD = { 'สูง': 'ข้อมูลพอ เชื่อถือได้ค่อนข้างมาก', 'ปานกลาง': 'ใช้เป็นแนวทางได้ แต่ควรดูสถานการณ์จริงร่วมด้วย', 'ต่ำ': 'ข้อมูลน้อยหรือยอดแกว่งมาก ใช้เป็นไอเดียคร่าว ๆ' };
+  const chg = []; for (let i = 1; i < n - 1; i++) if (y[i - 1] > 0) chg.push((y[i] - y[i - 1]) / y[i - 1] * 100);
+  const thr = chg.length >= 3 ? Math.min(15, Math.max(3, anSd(chg))) : 5;   // เกณฑ์ ดี/ควรระวัง = 1 SD ของการเปลี่ยนแปลงรายเดือนที่ผ่านมา (3–15%)
   const prevNet = hasP ? y[n - 2] : null, mom = hasP && prevNet ? (cur - prevNet) / prevNet * 100 : null;
   let vTone = 'md', vLabel = 'ปกติ', vText;
   if (mom == null) vText = `${mname}: ยอดสุทธิ ${money(cur)} (ยังไม่มีเดือนก่อนที่ข้อมูลครบให้เทียบ)`;
   else {
-    vTone = mom >= 5 ? 'hi' : mom <= -5 ? 'lo' : 'md'; vLabel = vTone === 'hi' ? 'ดี' : vTone === 'lo' ? 'ควรระวัง' : 'ปกติ';
-    vText = `${mname} ยอดสุทธิ ${money(cur)} ${mom >= 5 ? 'เพิ่มขึ้น' : mom <= -5 ? 'ลดลง' : 'ใกล้เคียงเดือนก่อน'} (${pf(mom)} จากเดือนก่อน)`;
+    vTone = mom >= thr ? 'hi' : mom <= -thr ? 'lo' : 'md'; vLabel = vTone === 'hi' ? 'ดี' : vTone === 'lo' ? 'ควรระวัง' : 'ปกติ';
+    vText = `${mname} ยอดสุทธิ ${money(cur)} ${mom >= thr ? 'เพิ่มขึ้น' : mom <= -thr ? 'ลดลง' : 'ใกล้เคียงเดือนก่อน'} (${pf(mom)} จากเดือนก่อน)`;
     if (chInfo) { const dr = mom >= 0 ? chInfo.up : (chInfo.dn.d < 0 ? chInfo.dn : null); if (dr) vText += mom >= 0 ? ` โดย ${esc(dr.k)} เป็นตัวดันหลัก` : ` โดย ${esc(dr.k)} เป็นตัวฉุดหลัก`;
       if (chInfo.share > .5) vText += ` และพึ่ง ${esc(chInfo.top1.k)} ถึง ${(chInfo.share * 100).toFixed(0)}% ของยอด`; }
   }
@@ -1210,8 +1231,10 @@ function renderAn() {
     ['อัตราปิดการขาย', cr1 == null ? '-' : cr1.toFixed(1) + '%', crD == null ? (cr1 == null ? 'ไม่มีข้อมูล Lead ครบเดือน' : '') : `<span class="${crD >= 0 ? 'up' : 'dn'}">${crD >= 0 ? '▲' : '▼'} ${Math.abs(crD).toFixed(1)} จุด</span> จากเดือนก่อน`, '--c4']]
     .map(([l, v, d, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join('');
 
+  const arRows = ROWS.filter(r => r.ar > 0), arTot = anSum(arRows.map(r => r.ar)), arN = new Set(arRows.map(r => r.cust || 'ไม่ระบุ')).size, deadN = DBRNG.max ? calcDead(DBRNG.max).list.filter(x => x.idle > 30).length : 0;
+  $('an-track').innerHTML = `<span>ติดตามต่อ:</span><span>ยอดคงค้างรวม <b>${money(arTot)}</b> (${fmt(arN)} ลูกค้า) <a href="#" class="lnk" onclick="showTab('debt');return false">ดูรายงาน</a></span><span>สินค้าไม่หมุนเวียนเกิน 30 วัน <b>${fmt(deadN)} รุ่น</b> <a href="#" class="lnk" onclick="showTab('dead');return false">ดูรายงาน</a></span>`;
   const hap = [];
-  if (mom != null) hap.push([mom >= 5 ? 'good' : mom <= -5 ? 'bad' : 'warn', `ยอดสุทธิ ${money(cur)} ${pf(mom)} จากเดือนก่อน (${sgn(cur - prevNet)})` + (volInfo ? ` ส่วนใหญ่มาจาก${volInfo.useVol ? 'จำนวนออเดอร์ที่' + (volInfo.vol >= 0 ? 'เพิ่มขึ้น' : 'ลดลง') : 'มูลค่าต่อออเดอร์ที่' + (volInfo.prc >= 0 ? 'เพิ่มขึ้น' : 'ลดลง')}` : '')]);
+  if (mom != null) hap.push([mom >= thr ? 'good' : mom <= -thr ? 'bad' : 'warn', `ยอดสุทธิ ${money(cur)} ${pf(mom)} จากเดือนก่อน (${sgn(cur - prevNet)})` + (volInfo ? ` ส่วนใหญ่มาจาก${volInfo.useVol ? 'จำนวนออเดอร์ที่' + (volInfo.vol >= 0 ? 'เพิ่มขึ้น' : 'ลดลง') : 'มูลค่าต่อออเดอร์ที่' + (volInfo.prc >= 0 ? 'เพิ่มขึ้น' : 'ลดลง')}` : '')]);
   else hap.push(['warn', `ยังไม่มีเดือนก่อนที่ข้อมูลครบให้เทียบกับ ${mname}`]);
   if (chInfo) hap.push([chInfo.dn.d < 0 || chInfo.share > .5 ? 'warn' : 'good', `ช่องทาง: ${esc(chInfo.up.k)} ดันยอด ${sgn(chInfo.up.d)}` + (chInfo.dn.d < 0 ? ` ส่วน ${esc(chInfo.dn.k)} ฉุดยอด ${sgn(chInfo.dn.d)}` : '') + ` · พึ่ง ${esc(chInfo.top1.k)} ${(chInfo.share * 100).toFixed(0)}% ของยอด`]);
   if (heroInfo && (heroInfo.up0 || heroInfo.dn0)) hap.push([heroInfo.dn0 && !heroInfo.up0 ? 'bad' : 'good', 'สินค้า: ' + (heroInfo.up0 ? `${esc(heroInfo.up0.k)} เป็น Hero ดันยอด ${sgn(heroInfo.up0.d)}` : 'ไม่มีรุ่นที่โตเด่น') + (heroInfo.dn0 ? ` · ${esc(heroInfo.dn0.k)} ยอดตก ${sgn(heroInfo.dn0.d)}` : '')]);
@@ -1227,7 +1250,6 @@ function renderAn() {
   if (volInfo && volInfo.useVol && volInfo.O1 < volInfo.O0 * .95) add(-volInfo.vol * .6, 'เร่งดึงออเดอร์ (โฆษณา ติดตาม Lead ที่ยังไม่ซื้อ)', `ออเดอร์ลดจาก ${fmt(volInfo.O0)} เหลือ ${fmt(volInfo.O1)}`, `ออเดอร์กลับมาไม่ต่ำกว่า ${fmt(volInfo.O0)}`);
   if (leadInfo && leadInfo.dPt != null && leadInfo.dPt < -2) add(cur * .04, 'เร่งติดตามลูกค้า Lead ที่ยังไม่ซื้อ', `อัตราปิดการขายลด ${Math.abs(leadInfo.dPt).toFixed(1)} จุด เหลือ ${leadInfo.r1.toFixed(1)}%`, `อัตราปิดการขายกลับมาไม่ต่ำกว่า ${leadInfo.r0.toFixed(1)}%`);
   else if (leadInfo && leadInfo.og.length >= 2 && leadInfo.og[0].r - leadInfo.og[leadInfo.og.length - 1].r >= 15) { const a = leadInfo.og[0], b = leadInfo.og[leadInfo.og.length - 1]; add(cur * .03, `ให้ ${esc(a.k)} แชร์วิธีติดตาม/ปิดการขายกับทีม`, `อัตราปิดของ ${esc(a.k)} ${a.r.toFixed(0)}% เทียบ ${esc(b.k)} ${b.r.toFixed(0)}%`, `อัตราปิดของคนต่ำสุดเพิ่มอย่างน้อย 5 จุด`); }
-  if (deadInfo && deadInfo.list.length && deadInfo.list[0].idle >= 30) { const x = deadInfo.list[0]; add(cur * .02, `ระบายรุ่นไม่หมุนเวียน เริ่มจาก ${esc(x.k)}`, `ไม่มียอดมา ${fmt(x.idle)} วัน (ยอดสะสมเดิม ${money(x.v)})`, 'มีออเดอร์ของรุ่นนี้ในเดือนหน้า หรือตัดสินใจเลิกสั่งเพิ่ม'); }
   if (di[hiI] - 100 >= 10) add(cur * .03, `จัดโปรโมชันและคนตอบแชทให้หนักวัน${dnF[hiI]} และช่วง${pn[pbest].split(' ')[0]}`, `วัน${dnF[hiI]}ขายสูงกว่าเฉลี่ย ${(di[hiI] - 100).toFixed(0)}%`, `ยอดวัน${dnF[hiI]}เดือนหน้าสูงกว่าเดือนนี้ 10%`);
   if (todo.length < 3 && fcInfo) add(0, 'ตั้งเป้ายอดเดือนหน้าเป็นช่วง', `คาดการณ์ ${monthName(fcInfo.nxt)} อยู่ราว ${moneyS(Math.max(0, fcInfo.fc.lo))}–${moneyS(fcInfo.fc.hi)}`, `เป้าขั้นต่ำ ${money(Math.max(0, fcInfo.fc.lo))} · เป้าท้าทาย ${money(fcInfo.fc.hi)}`);
   $('an-todo').innerHTML = todo.length ? '<ol class="todo">' + todo.sort((a, b) => b.imp - a.imp).slice(0, 3).map((t, i) => `<li><b>${i + 1}. ${t.act}</b><span>เพราะ: ${t.why}</span><span>เป้าหมายวัดผล: ${t.goal}</span></li>`).join('') + '</ol>' : '<p class="sub">ยังไม่มีข้อเสนอแนะจากข้อมูลที่มี</p>';
@@ -1240,12 +1262,12 @@ function renderAn() {
   const grp = (title, sub, keys) => `<details class="grp"><summary>${title}<span>${sub}</span></summary><div class="grid">${keys.map(k => C[k] || '').join('')}</div></details>`;
   const glossary = [['MoM', 'เทียบกับเดือนก่อน'], ['แนวโน้ม / R²', 'เส้นตรงที่ลากผ่านยอดรายเดือน R² บอกว่ายอดเดินตามเส้นนี้สม่ำเสมอแค่ไหน (0–1)'], ['ช่วงพยากรณ์ 95%', 'ช่วงที่ยอดจริงมีโอกาสราว 95% จะตกอยู่ ถ้ารูปแบบเดิมยังคงอยู่'], ['z-score', 'ยอดวันนั้นห่างจากค่าเฉลี่ยกี่เท่าของความแกว่งปกติ (เกิน 2 ถือว่าผิดปกติ)'], ['HHI', 'ดัชนีวัดว่ายอดกระจุกอยู่ในไม่กี่ช่องทางแค่ไหน (เกิน 2,500 = กระจุกสูง)'], ['กฎ 80/20 (Pareto)', 'กี่รุ่นทำยอดถึง 80%'], ['Pearson r', 'ความสัมพันธ์ของสองชุดตัวเลข (−1 ถึง 1) ไม่ได้บอกว่าอันไหนเป็นสาเหตุ']];
   const raw = `<details class="grp"><summary>ชั้นที่ 3: สำหรับคนอยากตรวจ<span>ข้อจำกัดของข้อมูล ความหมายของศัพท์ และตัวเลขรายเดือน (สูตรของแต่ละหัวข้ออยู่ในกล่อง "สูตรและตัวเลขที่ใช้" ท้ายการ์ด)</span></summary>
-    <div class="card"><h2>ข้อจำกัดของข้อมูล</h2><ul class="gl"><li>ข้อมูลที่ครบเดือนมี ${n} เดือน (${mShort(hist[0])} – ${mShort(M)}) จึงยังเห็นฤดูกาล เช่น 11.11 หรือปลายปี ไม่ได้ และพยากรณ์มีช่วงกว้าง</li><li>ไม่มีข้อมูลสต็อก จึงบอกได้แค่ว่าสินค้า "ขายไม่ออก" ไม่ใช่ "ค้างสต็อก"</li><li>คำแนะนำสร้างจากกฎและตัวเลขในข้อมูล ไม่ใช่คำทำนายแน่นอน ควรดูสถานการณ์จริงร่วมด้วย</li></ul>
+    <div class="card"><h2>ข้อจำกัดของข้อมูล</h2><ul class="gl"><li>ข้อมูลที่ครบเดือนมี ${n} เดือน (${mShort(hist[0])} – ${mShort(M)}) จึงยังเห็นฤดูกาล เช่น 11.11 หรือปลายปี ไม่ได้ และพยากรณ์มีช่วงกว้าง</li><li>รายงานสินค้าไม่หมุนเวียนไม่มีข้อมูลสต็อก จึงบอกได้แค่ "ขายไม่ออก" ไม่ใช่ "ค้างสต็อก"</li><li>ป้ายสี ดี/ปกติ/ควรระวัง ใช้เกณฑ์ ±${thr.toFixed(1)}% ซึ่งคำนวณจากความแกว่งปกติของยอดรายเดือน (ถ้าข้อมูลน้อยกว่า 5 เดือนใช้ ±5%)</li><li>คำแนะนำสร้างจากกฎและตัวเลขในข้อมูล ไม่ใช่คำทำนายแน่นอน ควรดูสถานการณ์จริงร่วมด้วย</li></ul>
     <h2 style="margin-top:14px">ความหมายของศัพท์</h2><ul class="gl">${glossary.map(([a, b]) => `<li><b>${a}</b>: ${b}</li>`).join('')}</ul>
     <h2 style="margin-top:14px">ตัวเลขรายเดือน</h2><div class="scroll"><table>${tableHtml(['เดือน', 'ยอดสุทธิ (฿)', 'ออเดอร์', 'AOV (฿)'], hist.map((m, i) => { const o = nOrd(rowsOf(m)); return [mShort(m), fmt(y[i]), fmt(o), o ? fmt(y[i] / o) : '-']; }))}</table></div></div></details>`;
   body.className = '';
   body.innerHTML = grp('กลุ่ม A: ทิศทางยอดขาย', 'แนวโน้ม · พยากรณ์ · ยอดเปลี่ยนเพราะออเดอร์หรือราคาต่อใบ', [1, 2, 6])
-    + grp('กลุ่ม B: ยอดมาจากไหน', 'ช่องทาง · สินค้าที่ทำยอด · Hero และสินค้ายอดตก · สินค้าไม่หมุนเวียน', [4, 5, 'h', 'd'])
+    + grp('กลุ่ม B: ยอดมาจากไหน', 'ช่องทาง · สินค้าที่ทำยอด · Hero และสินค้ายอดตก', [4, 5, 'h'])
     + grp('กลุ่ม C: จังหวะเวลา', 'วัน/ช่วงเดือนที่ขายดี · วันที่ยอดผิดปกติ', [7, 3])
     + grp('กลุ่ม D: ลูกค้าและแชท', 'Lead และอัตราปิดการขาย · แชทกับยอดขาย', [8, 9]) + raw;
   charts.forEach(f => f());
@@ -1261,10 +1283,11 @@ function showTab(t) {
   $('pgtitle').textContent = TITLES[t]; closeMenu();
   TABS.forEach(k => $('v-' + k).hidden = k !== t);
   $('monthWrap').style.display = t === 'ov' ? '' : 'none';
+  $('yearWrap').style.display = YEAR_TABS.includes(t) && YEARS.length > 1 ? '' : 'none';
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
   if (t === 'ov') render(); else {
     const ms = monthsList(); $('sub').textContent = ms.length ? 'ทั้งปี ' + (+ms[0].slice(0,4) + 543) : '';
-    t === 'prod' ? renderProd() : t === 'ch' ? renderCh() : t === 'ship' ? renderShip() : t === 'pay' ? renderPay() : t === 'per' ? renderPer() : t === 'ld' ? renderLd() : t === 'chat' ? renderChat() : t === 'so' ? renderSO() : t === 'an' ? renderAn() : renderCat(t);
+    t === 'prod' ? renderProd() : t === 'ch' ? renderCh() : t === 'ship' ? renderShip() : t === 'pay' ? renderPay() : t === 'per' ? renderPer() : t === 'ld' ? renderLd() : t === 'chat' ? renderChat() : t === 'so' ? renderSO() : t === 'debt' ? renderDebt() : t === 'dead' ? renderDead() : t === 'an' ? renderAn() : renderCat(t);
   }
 }
 
@@ -1273,6 +1296,10 @@ window.addEventListener('resize', () => { clearTimeout(window._rz); window._rz =
   if (window.innerWidth === lastW) return; lastW = window.innerWidth;
   if (!$('v-prod').hidden) renderProd(); else if (!$('v-ch').hidden) renderCh(); else if (!$('v-ship').hidden) renderShip(); else if (!$('v-pay').hidden) renderPay(); else if (!$('v-per').hidden) renderPer(); else if (!$('v-ld').hidden) renderLd(); else if (!$('v-chat').hidden) renderChat(); else if (!$('v-so').hidden) renderSO(); else if (!$('v-an').hidden) renderAn(); else { const c = CATS.find(x => !$('v-' + x.k).hidden); if (c) renderCat(c.k); } }, 200); });
 
+function fillMons() {   // สร้างตัวเลือกเดือนของแท็บที่เลือกตามปีที่เลือก
+  const hasMon = new Set(ROWS.map(r => r.date.slice(0,7))), opts = '<option value="all">ทั้งปี</option>' + monthsList().filter(m => hasMon.has(m)).map(m => `<option value="${m}">${monthName(m)}</option>`).join('');
+  ['p-mon', 'c-mon', 'sh-mon', ...CATS.map(c => 'mo-' + c.k)].forEach(id => { $(id).innerHTML = opts; $(id).value = 'all'; });
+}
 function warn(t) { $('msg').style.display = 'block'; $('msg').textContent = t; }
 
 async function init() {
@@ -1335,12 +1362,15 @@ async function init() {
     $('g-' + c.k).innerHTML = '<option value="none">ไม่เปรียบเทียบ</option>' + opts;
     ['f-', 'g-', 'm-', 'mo-'].forEach(pf => $(pf + c.k).addEventListener('change', () => renderCat(c.k)));
   });
-  const hasMon = new Set(ROWS.map(r => r.date.slice(0,7))), monOpts = '<option value="all">ทั้งปี</option>' + monthsList().filter(m => hasMon.has(m)).map(m => `<option value="${m}">${monthName(m)}</option>`).join('');
-  ['p-mon', 'c-mon', ...CATS.map(c => 'mo-' + c.k)].forEach(id => { $(id).innerHTML = monOpts; $(id).value = 'all'; });
+  YEARS = [...new Set(ROWS.map(r => r.date.slice(0,4)).filter(Boolean))].sort(); SELYEAR = YEARS[YEARS.length - 1] || '';
+  $('year').innerHTML = [...YEARS].reverse().map(y => `<option value="${y}">${+y + 543}</option>`).join(''); $('year').value = SELYEAR;
+  fillMons();
+  $('year').addEventListener('change', () => { SELYEAR = $('year').value; fillMons(); showTab(document.querySelector('#tabs button.on').dataset.t); });
+  CATS.forEach(c => { const el = $('dd-' + c.k); el.innerHTML = `<option value="all">ทุก${c.tab}</option>` + [...new Set(ROWS.map(r => r[c.k] || '(ไม่ระบุ)'))].sort((a, b) => a.localeCompare(b, 'th')).map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join(''); el.addEventListener('change', renderDead); });
   $('p-mon').addEventListener('change', renderProd); $('c-mon').addEventListener('change', renderCh);
   const shipN = group(ROWS, r => r.ship || 'ไม่ระบุ', () => [], (a, r) => a.push(r));
   $('sh-ch').innerHTML = '<option value="all">ทุกช่องทาง</option>' + [...shipN].sort((a, b) => nOrd(b[1]) - nOrd(a[1])).map(([k]) => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
-  $('sh-mon').innerHTML = monOpts; $('sh-ch').value = 'all'; $('sh-mon').value = 'all';
+  $('sh-ch').value = 'all';
   ['sh-ch', 'sh-mon'].forEach(id => $(id).addEventListener('change', renderShip));
   const soM = [...new Set(ROWS.filter(r => r.sod).map(r => r.sod.slice(0,7)))].sort();
   $('so-mon').innerHTML = '<option value="all">ทุกเดือน</option>' + soM.map(m => `<option value="${m}">${monthName(m)}</option>`).join('');
