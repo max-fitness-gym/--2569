@@ -133,9 +133,9 @@ details{margin-top:8px;color:var(--mute);font-size:12.5px}details summary{cursor
   <p class="sub">กรอกรหัส 4 หลักเพื่อเข้าดูข้อมูล</p>
   <div class="pin" id="pin">
    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 1">
+   <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 0">
    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 2">
-   <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 3">
-   <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 4">
+   <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 6">
   </div>
   <p class="lockmsg" id="lockmsg"></p>
   <label class="rem"><input type="checkbox" id="rem"> จำเครื่องนี้</label>
@@ -259,6 +259,7 @@ details{margin-top:8px;color:var(--mute);font-size:12.5px}details summary{cursor
    <div class="card"><h2 id="ld-12t">จำนวนลูกค้าที่เข้ามา 12 เดือนย้อนหลัง</h2><div id="ld-12"></div></div>
    <div class="card"><h2 id="ld-pt"></h2><div id="ld-pipe"></div></div>
    <div class="card"><h2>ขั้นตอนการปิดการขาย (ตามตัวกรอง)</h2><div id="ld-func"></div></div>
+   <div class="card"><h2 id="ld-sth">คะแนนความพึงพอใจ 1–5 ดาว</h2><p class="sub" id="ld-stn"></p><div class="scroll"><table id="ld-star"></table></div></div>
    <div class="card"><h2 id="ld-ott"></h2><div class="scroll"><table id="ld-ot"></table></div></div>
    <div class="card"><h2 id="ld-int"></h2><div id="ld-in"></div><div class="scroll"><table id="ld-intb"></table></div></div>
    <div class="card"><h2 id="ld-but"></h2><div id="ld-bu"></div><div class="scroll"><table id="ld-bub"></table></div></div>
@@ -308,7 +309,6 @@ details{margin-top:8px;color:var(--mute);font-size:12.5px}details summary{cursor
    <p class="sub">สูงสุด/ต่ำสุด/เฉลี่ยต่อวัน · MoM เทียบเดือนก่อน · YoY เทียบเดือนเดียวกันของปีก่อน (เทียบจากค่าเฉลี่ยต่อวัน) · รวม = เฉพาะวันที่มีข้อมูลครบทั้ง 2 ช่องทาง</p>
    <div class="scroll"><table id="cht-bt"></table></div></div>
   <div class="card"><h2 id="cht-aot"></h2><p class="sub" id="cht-aos"></p><div id="cht-ao"></div></div>
-  <div class="card" style="margin-top:12px"><h2>คะแนนความพึงพอใจ 1–5 ดาว</h2><p class="sub" id="cht-stn"></p><div class="scroll"><table id="cht-star"></table></div></div>
  </section>
 </div>
  </div>
@@ -730,7 +730,7 @@ function renderLd() {
   $('sub').textContent = yv !== 'all' && mv !== 'all' ? monthName(yv + '-' + mv) : yv !== 'all' ? 'ปี ' + (+yv + 543) : mv !== 'all' ? new Date(2000, +mv - 1, 1).toLocaleDateString('th-TH', { month: 'long' }) : 'ทุกช่วงเวลา';
   if (!lastM) {
     ['ld-12', 'ld-pipe', 'ld-func', 'ld-in', 'ld-bu'].forEach(id => $(id).innerHTML = '<p class="empty">ไม่มีข้อมูล Lead</p>');
-    ['ld-kpi', 'ld-ot', 'ld-intb', 'ld-bub'].forEach(id => $(id).innerHTML = ''); return;
+    ['ld-kpi', 'ld-ot', 'ld-intb', 'ld-bub', 'ld-star'].forEach(id => $(id).innerHTML = ''); $('ld-stn').textContent = ''; return;
   }
   const roll = (n, end = lastM) => { const b = +end.slice(0,4) * 12 + (+end.slice(5,7) - 1); return Array.from({ length: n }, (_, i) => { const k = b - (n - 1) + i; return Math.floor(k / 12) + '-' + String(k % 12 + 1).padStart(2, '0'); }); };
   const cand = yv !== 'all' ? Array.from({ length: 12 }, (_, i) => yv + '-' + String(i + 1).padStart(2, '0')) : mv !== 'all' ? allM : roll(12);
@@ -757,6 +757,12 @@ function renderLd() {
   lines2('ld-12', [{ name: 'ลูกค้าที่เข้ามา', color: '--c1', pts: roll(12, anchor).map(mk => ({ label: mShort(mk), v: hasL.has(mk) ? rowsOf(mk).length : null })) }], v => fmt(v) + ' ราย', fmt);
 
   $('ld-pt').textContent = 'Pipeline การปิดการขาย รายเดือน' + who + win;
+  {   // คะแนนความพึงพอใจ 1-5 ดาว ตามตัวกรอง ปี/เดือน/เจ้าหน้าที่ ของหน้านี้
+    const rated = scope.filter(r => r.score), cnt = [5, 4, 3, 2, 1].map(st => rated.filter(r => r.score === st).length), nr = rated.length, mxc = Math.max(...cnt, 1);
+    $('ld-stn').textContent = `ผู้ให้คะแนน ${fmt(nr)} ราย · เฉลี่ย ${nr ? (rated.reduce((a, r) => a + r.score, 0) / nr).toFixed(2) : '-'} ดาว · ไม่ได้ให้คะแนน ${fmt(scope.length - nr)} ราย`;
+    $('ld-star').innerHTML = '<tr>' + ['คะแนน', 'จำนวน (ราย)', 'สัดส่วน'].map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
+      [5, 4, 3, 2, 1].map((st, i) => `<tr><td>${'★'.repeat(st)}<span style="color:var(--mute)">${'☆'.repeat(5 - st)}</span> ${st} ดาว</td><td class="r">${fmtZ(cnt[i])}</td><td class="r" style="min-width:150px">${nr ? (cnt[i] / nr * 100).toFixed(1) + '%' : '-'}<div class="mb"><span style="width:${(cnt[i] / mxc * 100).toFixed(1)}%"></span></div></td></tr>`).join('');
+  }
   gbars('ld-pipe', months.map(k => mShort(k)), [
     { name: 'ลูกค้าที่เข้ามา', color: '--c1', vals: months.map(mk => hasL.has(mk) ? rowsOf(mk).length : null) },
     { name: 'ซื้อแล้ว', color: '--c2', vals: months.map(mk => hasL.has(mk) ? rowsOf(mk).filter(r => r.bought).length : null) }], fmt);
@@ -802,23 +808,15 @@ function chSum(days) {
   const vs = days.map(x => x.v), mx = Math.max(...vs), mn = Math.min(...vs), tot = vs.reduce((a, b) => a + b, 0);
   return { n: days.length, avg: tot / days.length, tot, max: mx, maxD: days[vs.indexOf(mx)].d, min: mn, minD: days[vs.indexOf(mn)].d };
 }
-function renderChatStars(ch, m, name) {   // คะแนนจากแท็บ Lead ตามช่องทางและเดือนของหน้าแชท
-  const vk = { fb: ['facebook', 'fb'], sp: ['shopee'] }[ch], lead = LEADS.filter(r => r.date.startsWith(m) && (!vk || vk.some(w => norm(r.via).includes(w))));
-  const rated = lead.filter(r => r.score), cnt = [5, 4, 3, 2, 1].map(st => rated.filter(r => r.score === st).length), nr = rated.length, mxc = Math.max(...cnt, 1);
-  $('cht-stn').textContent = `ช่องทาง: ${name} · ${monthName(m)} · ผู้ให้คะแนน ${fmt(nr)} ราย · เฉลี่ย ${nr ? (rated.reduce((a, r) => a + r.score, 0) / nr).toFixed(2) : '-'} ดาว · ไม่ได้ให้คะแนน ${fmt(lead.length - nr)} ราย · ข้อมูลจากแท็บ Lead (จับคู่ช่องทางตามชื่อช่องทางที่ลูกค้าติดต่อมา)`;
-  $('cht-star').innerHTML = '<tr>' + ['คะแนน', 'จำนวน (ราย)', 'สัดส่วน'].map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
-    [5, 4, 3, 2, 1].map((st, i) => `<tr><td>${'★'.repeat(st)}<span style="color:var(--mute)">${'☆'.repeat(5 - st)}</span> ${st} ดาว</td><td class="r">${fmtZ(cnt[i])}</td><td class="r" style="min-width:150px">${nr ? (cnt[i] / nr * 100).toFixed(1) + '%' : '-'}<div class="mb"><span style="width:${(cnt[i] / mxc * 100).toFixed(1)}%"></span></div></td></tr>`).join('');
-}
 function renderChat() {
   const last = a => a.length ? a[a.length - 1].d : '-';
   $('cht-upd').textContent = 'ข้อมูลล่าสุด: Shopee ถึง ' + last(CHAT.shopee) + ' · Facebook ถึง ' + last(CHAT.fb);
   if (!chMonths.length) {
-    $('sub').textContent = ''; $('cht-stn').textContent = ''; $('cht-star').innerHTML = ''; $('cht-kpi').innerHTML = ''; $('cht-bt').innerHTML = ''; $('cht-ao').innerHTML = '';
+    $('sub').textContent = ''; $('cht-kpi').innerHTML = ''; $('cht-bt').innerHTML = ''; $('cht-ao').innerHTML = '';
     $('cht-d').innerHTML = '<p class="empty">ไม่พบข้อมูลแชท (ตรวจชื่อแท็บ "DATA แชท Shopee" และ "Data แชท Facebook" ใน Sheet)</p>'; return;
   }
   const ch = $('cht-ch').value, m = $('cht-m').value, name = { all: 'ทุกช่องทาง', fb: 'Facebook', sp: 'Shopee' }[ch];
   $('sub').textContent = monthName(m);
-  renderChatStars(ch, m, name);
   const rng = (k => { const f = rangeOf(CHAT.fb.map(x => x.d)), s = rangeOf(CHAT.shopee.map(x => x.d)); return k === 'fb' ? f : k === 'sp' ? s : { min: f.min > s.min ? f.min : s.min, max: f.max < s.max ? f.max : s.max }; })(ch);
   const avgOf = k => mm => { const z = chSum(chDays(mm, k)); return z ? z.avg : null; };
   const cur = chSum(chDays(m, ch));
