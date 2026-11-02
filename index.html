@@ -35,6 +35,9 @@ svg{width:100%;height:auto;display:block}
 [hidden]{display:none!important}
 .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
 .bar input{flex:1;min-width:220px;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+#p-kpi{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media(max-width:1100px){#p-kpi{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){#p-kpi{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .kpis3{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:12px}
 .cmp2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
 .cmp{display:flex;align-items:center;gap:6px;font-size:14px;margin:0 0 8px}.cmp i,.lg i.sw{display:inline-block;width:10px;height:10px;border-radius:2px}
@@ -530,11 +533,9 @@ function renderProd() {
   const pl = k => mon === 'all' ? mShort(k) : dayName(k), unit = mon === 'all' ? 'ต่อเดือน' : 'ต่อวัน';
   const avgBase = mon === 'all' ? byMonth(rows, ms).filter(x => x.has) : dayPts(rowsM, mon, r => r.qty).filter(x => x.a !== null);   // นับเดือน/วันที่ขายได้ 0 ด้วย
   const avgV = avgBase.length ? avgBase.reduce((a, x) => a + (mon === 'all' ? x.q : x.a), 0) / avgBase.length : null;
-  const lastKey = (DBRNG.max || '').slice(0, 7), partial = mon === 'all' && ms.includes(lastKey) && !monthDone(lastKey, DBRNG);
-  const avgNote = avgBase.length ? (mon === 'all' ? `เฉลี่ยจาก ${avgBase.length} เดือน (รวมเดือนที่ขาย 0)` : `เฉลี่ยจาก ${avgBase.length} วัน (รวมวันที่ขาย 0)`) + (partial ? ' · รวมเดือนล่าสุดที่ยังไม่ครบ' : '') : '';
   const avgTxt = avgV == null ? '-' : avgV < 100 ? (Math.round(avgV * 10) / 10).toLocaleString('th-TH') : fmt(avgV);
   $('p-kpi').innerHTML = [['จำนวนออเดอร์', fmt(cur.o), cd('o'), '--c2'], ['จำนวนชิ้นที่ขาย', fmt(cur.q), cd('q'), '--c1'], ['ยอดสุทธิ', money(cur.v), cd('v'), '--c3'],
-    ['Max (ชิ้น' + unit + ')', hi ? fmt(hi[1].q) : '-', hi ? pl(hi[0]) : '', '--c4'], ['เฉลี่ย (ชิ้น' + unit + ')', avgTxt, avgNote, '--c3'], ['Min (ชิ้น' + unit + ')', lo ? fmt(lo[1].q) : '-', lo ? pl(lo[0]) : '', '--c5']]
+    ['Max (ชิ้น' + unit + ')', hi ? fmt(hi[1].q) : '-', hi ? pl(hi[0]) : '', '--c4'], ['เฉลี่ย (ชิ้น' + unit + ')', avgTxt, '', '--c3'], ['Min (ชิ้น' + unit + ')', lo ? fmt(lo[1].q) : '-', lo ? pl(lo[0]) : '', '--c5']]
     .map(([l, v, d, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join('');
   if (mon === 'all') { $('p-ct').textContent = 'จำนวนชิ้นที่ขาย รายเดือน (ทั้งปี)'; combo('p-month', byMonth(rows, ms).map(x => ({ label: x.label, a: x.has ? x.q : null })), false, v => fmt(v) + ' ชิ้น', fmt, true); }
   else { $('p-ct').textContent = 'จำนวนชิ้นที่ขาย รายวัน · ' + monthName(mon); combo('p-month', dayPts(rowsM, mon, r => r.qty), false, v => fmt(v) + ' ชิ้น', fmt, true); }
