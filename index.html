@@ -607,7 +607,7 @@ function renderCat(k) {
   $(k + '-tops').innerHTML = series.map(sr => `<div class="card"><h2>${cmp ? '' : ''}10 อันดับสินค้าขายดี · ${esc(sr.name)} (${mon === 'all' ? 'ทั้งปี' : monthName(mon)})</h2><div class="scroll"><table>` +
     tableHtml(['สินค้า (รุ่น)', 'จำนวน', 'ยอดเงิน (฿)'],
       [...group(sr.rowsM, r => r.prod || 'ไม่ระบุ', () => ({ q:0, v:0 }), (a, r) => { a.q += r.qty; a.v += r.net; })]
-        .sort((a, b) => b[1].q - a[1].q).slice(0, 10).map(([p, a], i) => [(i + 1) + '. ' + p, fmt(a.q), fmt(a.v))]) + '</table></div></div>').join('');
+        .sort((a, b) => b[1].q - a[1].q).slice(0, 10).map(([p, a], i) => [(i + 1) + '. ' + p, fmt(a.q), fmt(a.v)])) + '</table></div></div>').join('');
 }
 function gbars(id, cats, series, fl) {
   const all = series.flatMap(sr => sr.vals.filter(v => v !== null && v !== undefined));
@@ -873,36 +873,30 @@ function calcDead(refD) {
   return { list, one, pre };
 }
 function renderDead() {
-  if (!DBRNG.max) { $('dd-tbl').innerHTML = ''; $('dd-kpi').innerHTML = ''; $('dd-note').textContent = 'ไม่มีข้อมูล'; return; }
+  if (!DBRNG.max) { $('dd-tbl').innerHTML = ''; $('dd-kpi').innerHTML = ''; return; }
   const { list, one, pre } = calcDead(DBRNG.max), sel = Object.fromEntries(CATS.map(c => [c.k, $('dd-' + c.k).value]));
   const fl = list.filter(x => x.idle > 30 && CATS.every(c => sel[c.k] === 'all' || x[c.k] === sel[c.k]));
   $('sub').textContent = 'นับถึง ' + dateTh(DBRNG.max);
   $('dd-kpi').innerHTML = [['รุ่นที่ไม่มียอดเกิน 30 วัน', fmt(fl.length) + ' รุ่น', '--c1'], ['ในนั้นเงียบเกิน 90 วัน', fmt(fl.filter(x => x.idle > 90).length) + ' รุ่น', '--c2'], ['ยอดเงินรวมในอดีตของรุ่นเหล่านี้', money(anSum(fl.map(x => x.v))), '--c3']]
     .map(([l, v, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${v}</div></div>`).join('');
-  $('dd-note').textContent = `แสดงเฉพาะรุ่นที่ไม่มียอดเกิน 30 วันนับถึง ${dateTh(DBRNG.max)} · ตัดออก: รุ่นที่ขายครั้งเดียวในประวัติ ${fmt(one)} รุ่น และรุ่นที่เคยเป็นพรีออเดอร์ ${fmt(pre)} รุ่น · หมวด/ประเภท/กลุ่มใช้ค่าจากรายการขายล่าสุดของรุ่นนั้น · ระบบไม่มีข้อมูลสต็อก จึงบอกได้แค่ "ขายไม่ออก" ไม่ใช่ "ค้างสต็อก" และรุ่นที่ไม่เคยขายเลยจะไม่อยู่ในรายการ`;
   const heads = ['#', 'รุ่น', 'หมวด', 'ประเภท', 'กลุ่ม', 'ขายล่าสุด', 'ไม่เคลื่อนไหว (วัน)', 'ชิ้นรวมในอดีต', 'ยอดเงินรวมในอดีต (฿)'];
   $('dd-tbl').innerHTML = '<tr>' + heads.map((h, i) => `<th class="${i >= 5 ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
     (fl.length ? fl.map((x, i) => '<tr>' + [i + 1, x.k, x.cat, x.typ, x.grp, dateTh(x.last), fmt(x.idle), fmt(x.q), fmt(x.v)].map((c, j) => `<td class="${j >= 5 ? 'r' : ''}">${esc(c)}</td>`).join('') + '</tr>').join('')
       : `<tr><td class="empty" colspan="${heads.length}">ไม่พบรุ่นที่ไม่มียอดเกิน 30 วันตามตัวกรองนี้</td></tr>`);
 }
 
-/* ===== รายงานยอดคงค้างทั้งหมด (ทุกแถวที่ยอดคงค้าง > 0 ไม่จำกัดเดือน) รวมถึงเพิ่มคอลัมน์ เลข SO และ วันที่ซื้อ ===== */
+/* ===== รายงานยอดคงค้างทั้งหมด (ทุกแถวที่ยอดคงค้าง > 0 ไม่จำกัดเดือน) ===== */
 function renderDebt() {
   const rs = ROWS.filter(r => r.ar > 0), tot = rs.reduce((a, r) => a + r.ar, 0);
-  const list = [...group(rs, r => r.cust || 'ไม่ระบุ', () => ({ v: 0, rs: [] }), (a, r) => { a.v += r.ar; a.rs.push(r); })].map(([k, a]) => ({ k, v: a.v, rs: a.rs, o: nOrd(a.rs) })).sort((a, b) => b.v - a.v);
+  const real = r => /^\(ว่าง\)/.test(r.order) ? '' : r.order;
+  const list = [...group(rs, r => r.cust || 'ไม่ระบุ', () => ({ v: 0, rs: [] }), (a, r) => { a.v += r.ar; a.rs.push(r); })].map(([k, a]) => ({ k, v: a.v, o: nOrd(a.rs),
+    so: [...new Set(a.rs.map(real).filter(Boolean))].join(', ') || '-', dt: [...new Set(a.rs.map(r => r.date).filter(Boolean))].sort().map(dateTh).join(', ') || '-' })).sort((a, b) => b.v - a.v);
   $('sub').textContent = DBRNG.max ? 'ข้อมูลถึง ' + dateTh(DBRNG.max) : '';
   $('debt-kpi').innerHTML = [['ยอดคงค้างรวม', money(tot), '--c1'], ['ลูกค้าที่มียอดค้าง', fmt(list.length) + ' ราย', '--c2'], ['ออเดอร์ที่ยังค้าง', fmt(nOrd(rs)), '--c3']]
     .map(([l, v, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${v}</div></div>`).join('');
-  
-  const mx = list.length ? list[0].v : 1, heads = ['#', 'ลูกค้า', 'เลข SO', 'วันที่ซื้อ', 'ออเดอร์ที่ค้าง', 'ยอดคงค้าง (฿)', 'สัดส่วน'];
-  $('debt-tbl').innerHTML = '<tr>' + heads.map((h, i) => `<th class="${i >= 4 ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
-    (list.length ? list.map((x, i) => {
-      // ดึงเลข SO และ วันที่ซื้อจากรายการของลูกค้ารายนี้ (รองรับหลายรายการถ้ามี)
-      const soList = [...new Set(x.rs.map(r => r.order || '-'))].join(', ');
-      const dateList = [...new Set(x.rs.map(r => r.date ? dateTh(r.date) : '-'))].join(', ');
-      const pctVal = (x.v / (tot || 1) * 100).toFixed(1) + '%';
-      return `<tr><td>${i + 1}</td><td>${esc(x.k)}</td><td>${esc(soList)}</td><td>${esc(dateList)}</td><td class="r">${fmt(x.o)}</td><td class="r">${fmt(x.v)}</td><td class="r">${pctVal}</td></tr>`;
-    }).join('')
+  const heads = ['#', 'ลูกค้า', 'เลข SO', 'วันที่ซื้อ', 'ออเดอร์ที่ค้าง', 'ยอดคงค้าง (฿)', 'สัดส่วน'];
+  $('debt-tbl').innerHTML = '<tr>' + heads.map((h, i) => `<th class="${i > 3 ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
+    (list.length ? list.map((x, i) => '<tr>' + [i + 1, x.k, x.so, x.dt, fmt(x.o), fmt(x.v), (x.v / (tot || 1) * 100).toFixed(1) + '%'].map((c, j) => `<td class="${j > 3 ? 'r' : ''}">${esc(c)}</td>`).join('') + '</tr>').join('')
       : `<tr><td class="empty" colspan="${heads.length}">ไม่มียอดคงค้าง</td></tr>`);
 }
 const nOrd = rs => new Set(rs.map(r => r.order)).size;   // นับตามเลขที่คำสั่งซื้อไม่ซ้ำ (แถวที่ไม่มีเลขที่ นับเป็นรายการละ 1)
@@ -921,7 +915,7 @@ function renderChExtra() {
   if (mon !== 'all') { const ref = mPrev(mon); if (monthDone(mon, DBRNG) && monthDone(ref, DBRNG)) cmpS = stat(ROWS.filter(r => r.date.startsWith(ref) && pred(r))); }
   else { const hasM = new Set(ROWS.map(r => r.date.slice(0,7))), cm = ms.filter(m => hasM.has(m) && monthDone(m, DBRNG)), ref = cm.map(mYoY);
     if (cm.length && ref.every(m => hasM.has(m) && monthDone(m, DBRNG))) { curS = stat(ROWS.filter(r => cm.includes(r.date.slice(0,7)) && pred(r))); cmpS = stat(ROWS.filter(r => ref.includes(r.date.slice(0,7)) && pred(r))); } }
-  const cell = k => { const a = curS.get(k), b = cmpS && cmpS.get(k); if (!a || !b) return '-'; return `เงิน ${pctH(a.v, b.v) || '-'}<span class="n2">ครั้ง ${pctH(a.o, b.o) || '-'5}</span>`; };
+  const cell = k => { const a = curS.get(k), b = cmpS && cmpS.get(k); if (!a || !b) return '-'; return `เงิน ${pctH(a.v, b.v) || '-'}<span class="n2">ครั้ง ${pctH(a.o, b.o) || '-'}</span>`; };
   $('ch-ctt').innerHTML = '<tr>' + ['ประเภทการติดต่อ', 'จำนวนครั้ง', 'ยอดเงิน (฿)', 'สัดส่วน', yy].map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('') + '</tr>' +
     g.map(x => '<tr>' + [esc(x.k), fmt(x.o), fmt(x.v), (x.v / tv * 100).toFixed(1) + '%', cell(x.k)].map((v, i) => `<td class="${i ? 'r' : ''}">${v}</td>`).join('') + '</tr>').join('');
 }
@@ -1078,7 +1072,7 @@ function renderAn() {
   const dirTxt = !sig ? 'ทรงตัว (ยังไม่เห็นแนวโน้มชัดเจน)' : reg.b > 0 ? 'เติบโต' : 'ถดถอย', tConf = n >= 12 && reg.r2 >= .5 ? 'สูง' : n >= 6 && reg.r2 >= .3 ? 'ปานกลาง' : 'ต่ำ';
   const ma3 = n >= 3 ? anMean(y.slice(-3)) : null, ma3p = n >= 6 ? anMean(y.slice(-6, -3)) : null;
   if (n >= 3) {
-    cards.push(anCard(1, 'แนวโน้มยอดขายรายเดือน', tConf, `ยอดขาย${dirTxt} · ${sgn(reg.b)} เดือน (${pf(slopePct)} ของยอดเฉลี่ย)`,
+    cards.push(anCard(1, 'แนวโน้มยอดขายรายเดือน', tConf, `ยอดขาย${dirTxt} · ${sgn(reg.b)} ต่อเดือน (${pf(slopePct)} ของยอดเฉลี่ย)`,
       [['ยอด ' + mShort(M), money(cur)], ['เฉลี่ยรายเดือน', money(avgY)], ['โตเฉลี่ยต่อเดือน', cmgr == null ? '-' : pf(cmgr) + '/เดือน'], ['ความสม่ำเสมอของแนวโน้ม', reg.r2 >= .5 ? 'สูง' : reg.r2 >= .3 ? 'ปานกลาง' : 'ต่ำ'], ['เฉลี่ย 3 เดือนล่าสุด', ma3 == null ? '-' : money(ma3)]], 'an-c1',
       `จากข้อมูล ${n} เดือน ` + (sig ? 'ทิศทางของยอดชัดเจนพอที่จะเชื่อได้' : 'ยอดแกว่งมากเมื่อเทียบกับทิศทาง จึงยังสรุปไม่ได้ว่ายอดกำลังขึ้นหรือลง') +
         (ma3 != null && ma3p != null ? ` · เฉลี่ย 3 เดือนล่าสุด ${pl(ma3, ma3p)} เทียบ 3 เดือนก่อนหน้า` : '') + '.',
