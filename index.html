@@ -115,6 +115,8 @@ details{margin-top:8px;color:var(--mute);font-size:12.5px}details summary{cursor
 @media(max-width:900px){#v-hl .hl-4{grid-template-columns:repeat(2,minmax(0,1fr))}}
 #v-hl .kpi .v{font-size:clamp(20px,2vw,28px);white-space:nowrap}
 #v-hl .hl-sec{margin-bottom:14px}
+#v-hl .hl-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:12px}@media(max-width:900px){#v-hl .hl-2{grid-template-columns:1fr}}
+#v-hl h3.s{font-size:14px;margin:0 0 6px}
 #v-hl [contenteditable]{outline:none;min-width:90px}#v-hl [contenteditable]:focus{background:rgba(255,255,255,.08);border-radius:4px}
 #v-hl .hl-warn{display:inline-block;margin-left:8px;padding:2px 10px;border-radius:999px;font-size:12px;background:rgba(251,191,36,.16);color:#fbbf24;font-weight:500}
 #v-hl .hl-hint{color:var(--mute);font-size:13px;margin:6px 0 0}
@@ -289,7 +291,7 @@ details{margin-top:8px;color:var(--mute);font-size:12.5px}details summary{cursor
  </section>
 
  <section id="v-hl" hidden>
-  <div class="bar"><label>เดือน <select id="hl-m"></select></label><span class="sub" id="hl-note"></span></div>
+  <div class="bar"><label>เดือน <select id="hl-m"></select></label><label>มุมมองสินค้า <select id="hl-dim"><option value="grp">ตามกลุ่มสินค้า</option><option value="cat">ตามหมวดสินค้า</option><option value="typ">ตามประเภทสินค้า</option></select></label><span class="sub" id="hl-note"></span></div>
   <div id="hl-body"></div>
  </section>
 
@@ -909,8 +911,6 @@ function renderDead() {
 
 /* ===== หน้าไฮไลท์สำหรับพรีเซ็นต์ (ยอดขาย SO · Lead · ช่องทาง · ยอดคงค้าง · สิ่งที่ขอ) ===== */
 let TGT = [];   // เป้าขายจากแท็บ "เป้าขาย" ใน Google Sheet: { m: 'YYYY-MM', ch: ชื่อช่องทาง (ว่าง = เป้ารวม), v: บาท }
-const HL_ASKS = [['ฝ่ายขาย', 'อัปเดตไฟล์ Lead ทันทีเมื่อปิดการขายหรือติดตามลูกค้า', 'ทันที'], ['ฝ่ายขาย', 'หาคำตอบว่าทำไมลูกค้าให้ 4 ดาวแต่ไม่ซื้อ', '____'],
-  ['ฝ่ายขาย / บัญชี', 'รีวิวยอดคงค้าง เริ่มจาก 5 รายแรก ว่าเก็บเงินแล้วหรือยัง', '____'], ['ทุกคนที่ลงข้อมูล', 'ลงชื่อ SKU ให้ตรงกัน เช่น M5 Pro (ไม่ใช่ M5Pro / M5-Pro)', '____']];
 function tgtMonth(v) {   // รับ 2026-10, 10/2026, ต.ค. 69, ตุลาคม 2569, วันที่เต็ม → 'YYYY-MM'
   const s = String(v ?? '').trim(); if (!s) return '';
   let a, y;
@@ -954,11 +954,15 @@ function renderHl() {
   const chs = [...new Set([...gM.keys(), ...gP.keys()])].map(k => ({ k, a: st(gM.get(k) || []), b: st(gP.get(k) || []), t: tgtOf(m, k) })).map(c => ({ ...c, d: c.a.v - c.b.v })).sort((x, y) => y.a.v - x.a.v);
   const anyT = tgt != null || chs.some(c => c.t != null), drv = okP ? [...chs].sort((x, y) => y.d - x.d)[0] : null, drg = okP ? [...chs].sort((x, y) => x.d - y.d)[0] : null;
 
-  // --- ยอดคงค้าง ---
-  const { tot: dTot, list: dl, rs: drs } = debtData(), top5 = dl.slice(0, 5), t5 = top5.reduce((a, x) => a + x.v, 0), ref = DBRNG.max || '';
-  const dN = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 864e5, bk = [['0–30 วัน', 0, 30], ['31–60 วัน', 31, 60], ['61–90 วัน', 61, 90], ['เกิน 90 วัน', 91, 1e9]];
-  const age = bk.map(([l, lo, hi]) => ({ l, v: drs.filter(r => r.date && ref && (dN(ref) - dN(r.date)) >= lo && (dN(ref) - dN(r.date)) <= hi).reduce((a, r) => a + r.ar, 0) }));
-  const noDate = drs.filter(r => !r.date).reduce((a, r) => a + r.ar, 0); if (noDate) age.push({ l: 'ไม่ระบุวันที่', v: noDate });
+  // --- สินค้า (ยอดสุทธิตามวันที่ซื้อ เหมือนหน้าข้อมูลตามหมวด/ประเภท/กลุ่ม) ---
+  const dim = $('hl-dim').value || 'grp', dimTab = CATS.find(c => c.k === dim).tab, okPP = rcP > 0 && monthDone(P, DBRNG);
+  const agg = (rs, kf) => group(rs, kf, () => ({ v: 0, q: 0 }), (a, r) => { a.v += r.net; a.q += r.qty; });
+  const zero = { v: 0, q: 0 }, gk = r => r[dim] || '(ไม่ระบุ)', pk = r => r.prod || '(ไม่ระบุ)';
+  const cmpRows = (A, B) => [...new Set([...A.keys(), ...B.keys()])].map(k => { const a = A.get(k) || zero, b = B.get(k) || zero; return { k, v: a.v, q: a.q, pv: b.v, d: a.v - b.v }; });
+  const dRows = cmpRows(agg(incOf(m), gk), agg(incOf(P), gk)).sort((x, y) => y.v - x.v);
+  const dUp = okPP ? [...dRows].sort((x, y) => y.d - x.d)[0] : null, dDn = okPP ? [...dRows].sort((x, y) => x.d - y.d)[0] : null;
+  const thrH = Math.max(rcP * .005, 1), hRows = cmpRows(agg(incOf(m), pk), agg(incOf(P), pk));
+  const heroes = okPP ? hRows.filter(x => x.pv > 0 && x.d >= thrH).sort((x, y) => y.d - x.d).slice(0, 3) : [], drops = okPP ? hRows.filter(x => x.d <= -thrH).sort((x, y) => x.d - y.d).slice(0, 3) : [];
 
   // --- ประโยคสรุปหัวหน้า ---
   const tone = okP ? ((cur.v - prv.v) / (prv.v || 1) * 100 >= 5 ? 'hi' : (cur.v - prv.v) / (prv.v || 1) * 100 <= -5 ? 'lo' : 'md') : 'md', lab = tone === 'hi' ? 'ดี' : tone === 'lo' ? 'ควรระวัง' : 'ปกติ';
@@ -972,7 +976,7 @@ function renderHl() {
     card('ยอดขาย SO', money(cur.v), [momTxt(cur.v, prv.v, okP), tgtTxt].filter(Boolean).join('<br>'), '--c1') +
     card('รายรับ (ตามวันที่ซื้อ)', money(rcM), momTxt(rcM, rcP, okRP), '--c2') +
     card('อัตราปิด Lead', lr == null ? '-' : lr.toFixed(1) + '%', ptTxt, '--c3') +
-    card('ยอดคงค้างรวม', money(dTot), `${fmt(dl.length)} ราย <span class="hl-warn">รอตรวจสอบ</span>`, '--c4') + '</div>';
+    `<div class="card kpi" style="--a:var(--c4)"><div class="l">${dimTab}ที่ตกมากสุด</div><div class="v" style="overflow:hidden;text-overflow:ellipsis;font-size:clamp(16px,1.6vw,22px)">${dDn && dDn.d < 0 ? esc(dDn.k) : '-'}</div><div class="d">${dDn && dDn.d < 0 ? `<span class="dn">${sg(dDn.d)}</span> จากเดือนก่อน` : ''}</div></div></div>`;
 
   const s1 = sec(1, 'ยอดขายจริง (ตามเลข SO) เทียบเดือนก่อน' + (anyT ? ' และเป้า' : ''),
     `ยอดขาย SO ${money(cur.v)}` + (okP ? ` ${cur.v >= prv.v ? 'เพิ่มขึ้น' : 'ลดลง'} ${pc((cur.v - prv.v) / (prv.v || 1) * 100).replace(/^[+−]/, '')}` : '') + ` · รายรับ ${money(rcM)} · ส่วนต่าง ${sg(gap)} (FO + เก็บเงิน)`,
@@ -990,22 +994,20 @@ function renderHl() {
   const s3 = sec(3, 'ความสามารถแต่ละช่องทาง (ยอดขายตามเลข SO)', drv && drg ? `ช่องทางที่ดันยอดมากสุด ${esc(drv.k)} (${sg(drv.d)}) · ฉุดมากสุด ${esc(drg.k)} (${sg(drg.d)}) เทียบเดือนก่อน` : 'ไม่มีเดือนก่อนที่ข้อมูลครบให้เทียบ',
     raw(['ช่องทาง', 'ยอด SO (฿)', 'เทียบเดือนก่อน', 'ส่วนต่าง', 'AOV', ...(anyT ? ['เป้า (฿)', '% ของเป้า'] : [])], [...chRows, totRow]));
 
-  const s4 = sec(4, 'ยอดคงค้างที่เหลือ <span class="hl-warn">ข้อมูลรอตรวจสอบ</span>', `ยอดคงค้างรวม ${money(dTot)} จาก ${fmt(dl.length)} ราย · 5 รายแรกรวม ${money(t5)} (${dTot ? (t5 / dTot * 100).toFixed(0) : 0}%)`,
-    raw(['ลูกค้า (5 รายแรก)', 'เลข SO', 'วันที่ซื้อ', 'ยอดคงค้าง (฿)', 'สัดส่วน'], top5.map(x => [esc(x.k), esc(x.so), esc(x.dt), fmt(x.v), (x.v / (dTot || 1) * 100).toFixed(1) + '%'])) +
-    '<div style="height:10px"></div>' + raw(['อายุหนี้ (นับจากวันที่ซื้อถึงข้อมูลล่าสุด)', 'ยอดคงค้าง (฿)', 'สัดส่วน'], age.map(a => [a.l, fmt(a.v), dTot ? (a.v / dTot * 100).toFixed(0) + '%' : '-'])));
-
-  let asks = HL_ASKS; try { const sv = JSON.parse(localStorage.getItem('hl_asks') || 'null'); if (Array.isArray(sv) && sv.length) asks = sv; } catch (e) {}
-  const s5 = sec(5, 'สิ่งที่ขอจากที่ประชุม', 'คลิกที่ข้อความเพื่อพิมพ์แก้ได้ในหน้านี้ (บันทึกไว้ในเบราว์เซอร์เครื่องนี้)',
-    '<div class="scroll"><table id="hl-asks"><tr><th>#</th><th>ใคร</th><th>ทำอะไร</th><th>เมื่อไร</th></tr>' + asks.map((a, i) => `<tr><td>${i + 1}</td>` + [0, 1, 2].map(j => `<td contenteditable="true">${esc(a[j] || '')}</td>`).join('') + '</tr>').join('') + '</table></div>');
+  const dBody = raw([dimTab, 'ยอดสุทธิ (฿)', 'เทียบเดือนก่อน', 'ส่วนต่าง', 'ชิ้น', '% ของยอดรวม'], [...dRows.slice(0, 10).map(x => [esc(x.k), fmt(x.v), x.pv > 0 ? (okPP ? pctH(x.v, x.pv) : '-') : (x.v > 0 ? 'ใหม่' : '-'), okPP ? `<span class="${x.d >= 0 ? 'up' : 'dn'}">${sg(x.d)}</span>` : '-', fmt(x.q), rcM ? (x.v / rcM * 100).toFixed(1) + '%' : '-']),
+    ['<b>รวม</b>', `<b>${fmt(rcM)}</b>`, okPP ? pctH(rcM, rcP) : '-', `<b>${okPP ? sg(rcM - rcP) : '-'}</b>`, `<b>${fmt(incOf(m).reduce((a, r) => a + r.qty, 0))}</b>`, '100%']]);
+  const hTbl = (t, arr) => `<div><h3 class="s">${t}</h3>` + raw(['รุ่น', 'เดือนนี้ (฿)', 'เดือนก่อน (฿)', 'ส่วนต่าง'], arr.length ? arr.map(x => [esc(x.k), fmt(x.v), fmt(x.pv), `<span class="${x.d >= 0 ? 'up' : 'dn'}">${sg(x.d)}</span>`]) : [['-', '', '', '']]) + '</div>';
+  const s4 = sec(4, 'สินค้า: ตัวดันยอดและตัวที่ตก', okPP ? [dUp && dUp.d > 0 ? `${dimTab}ที่ดันยอดมากสุดคือ ${esc(dUp.k)} (${sg(dUp.d)})` : '', dDn && dDn.d < 0 ? `ตกมากสุดคือ ${esc(dDn.k)} (${sg(dDn.d)})` : ''].filter(Boolean).join(' · ') + (heroes[0] ? ` · รุ่น Hero ${esc(heroes[0].k)} (${sg(heroes[0].d)})` : '') + (drops[0] ? ` · รุ่นที่ตกหนัก ${esc(drops[0].k)} (${sg(drops[0].d)})` : '') : 'ไม่มีเดือนก่อนที่ข้อมูลครบให้เทียบ',
+    dBody + '<div class="hl-2">' + hTbl('รุ่น Hero ที่ดันยอด (3 อันดับ)', heroes) + hTbl('รุ่นที่ยอดตก (3 อันดับ)', drops) + '</div>' +
+    '<p class="hl-hint">ยอดสุทธิตามวันที่ซื้อ (ตรงกับหน้าข้อมูลตามหมวด/ประเภท/กลุ่ม) · นับเฉพาะรุ่นที่เปลี่ยนไม่น้อยกว่า 0.5% ของยอดเดือนก่อน · ชื่อ SKU ที่สะกดต่างกัน (เช่น M5Pro / M5 Pro) จะถูกนับเป็นคนละรุ่น</p>');
 
   $('sub').textContent = monthName(m);
   $('hl-note').textContent = `ยอดขายถึง ${DBRNG.max ? dateTh(DBRNG.max) : '-'} · Lead ถึง ${LDRNG.max ? dateTh(LDRNG.max) : '-'}`;
-  body.innerHTML = top + s1 + s2 + s3 + s4 + s5;
+  body.innerHTML = top + s1 + s2 + s3 + s4;
 
   const win = Array.from({ length: 6 }, (_, i) => { let k = m; for (let j = 0; j < 5 - i; j++) k = mPrev(k); return k; });
   gbars('hl-c1', win.map(k => mShort(k)), [{ name: 'ยอดขาย SO', color: '--c1', vals: win.map(k => soOf(k).length ? net(soOf(k)) : null) }, { name: 'รายรับ', color: '--c2', vals: win.map(k => incOf(k).length ? net(incOf(k)) : null) }], short);
   gbars('hl-c2', win.map(k => mShort(k)), [{ name: 'Lead', color: '--c1', vals: win.map(k => ldOf(k).length || null) }, { name: 'ปิดได้', color: '--c2', vals: win.map(k => ldOf(k).length ? ldOf(k).filter(r => r.bought).length : null) }], fmt);
-  try { const tb = $('hl-asks'); tb.addEventListener('input', () => { try { localStorage.setItem('hl_asks', JSON.stringify([...tb.querySelectorAll('tr')].slice(1).map(tr => [...tr.querySelectorAll('td[contenteditable]')].map(td => td.textContent.trim())))); } catch (e) {} }); } catch (e) {}
 }
 
 function debtData() {
@@ -1510,7 +1512,7 @@ async function init() {
   OFFS = [...oc.keys()].filter(o => o !== 'ทั้งทีมฝ่ายขาย').sort((a, b) => ((a === 'ไม่ทราบ') - (b === 'ไม่ทราบ')) || oc.get(b) - oc.get(a));
   const lys = [...new Set(LEADS.map(r => r.date.slice(0,4)).filter(Boolean))].sort().reverse();
   { const hlM = [...new Set([...ROWS.filter(r => r.sod).map(r => r.sod.slice(0, 7)), ...ROWS.map(r => r.date.slice(0, 7))].filter(Boolean))].sort().reverse();
-    $('hl-m').innerHTML = hlM.map(k => `<option value="${k}">${monthName(k)}</option>`).join(''); $('hl-m').value = hlM.find(k => monthDone(k, SORNG) && monthDone(k, DBRNG)) || hlM[0] || ''; $('hl-m').addEventListener('change', renderHl); }
+    $('hl-m').innerHTML = hlM.map(k => `<option value="${k}">${monthName(k)}</option>`).join(''); $('hl-m').value = hlM.find(k => monthDone(k, SORNG) && monthDone(k, DBRNG)) || hlM[0] || ''; $('hl-m').addEventListener('change', renderHl); $('hl-dim').addEventListener('change', renderHl); }
   $('ld-y').innerHTML = '<option value="all">ทุกปี</option>' + lys.map(y => `<option value="${y}">${+y + 543}</option>`).join('');
   $('ld-m').innerHTML = '<option value="all">ทุกเดือน</option>' + Array.from({ length: 12 }, (_, i) => `<option value="${String(i + 1).padStart(2, '0')}">${new Date(2000, i, 1).toLocaleDateString('th-TH', { month: 'long' })}</option>`).join('');
   $('ld-o').innerHTML = '<option value="all">ทุกคน</option>' + OFFS.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
