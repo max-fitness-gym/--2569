@@ -107,6 +107,17 @@ input::placeholder{color:var(--mute)}
 details{margin-top:8px;color:var(--mute);font-size:12.5px}details summary{cursor:pointer}.fm{padding:8px 0;line-height:1.7}
 .rb{position:relative;height:14px;background:rgba(255,255,255,.08);border-radius:7px;margin:16px 0 6px}.rb i{position:absolute;display:block}
 .rb .r{top:0;bottom:0;background:rgba(167,139,250,.35);border-radius:7px}.rb .p{top:-4px;bottom:-4px;width:3px;background:var(--c1);border-radius:2px}.rb .a{top:-4px;bottom:-4px;width:3px;background:var(--c2);border-radius:2px}
+/* highlight page */
+#v-hl .hl-h{display:flex;align-items:center;gap:10px;font-size:18px;margin:0 0 6px}
+#v-hl .hl-n{display:inline-flex;width:28px;height:28px;border-radius:50%;background:var(--c1);color:#14101f;font-weight:700;align-items:center;justify-content:center;font-size:15px;flex:none}
+#v-hl .hl-s{font-size:16px;line-height:1.6;margin:0 0 12px;color:var(--ink)}
+#v-hl .hl-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+@media(max-width:900px){#v-hl .hl-4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#v-hl .kpi .v{font-size:clamp(20px,2vw,28px);white-space:nowrap}
+#v-hl .hl-sec{margin-bottom:14px}
+#v-hl [contenteditable]{outline:none;min-width:90px}#v-hl [contenteditable]:focus{background:rgba(255,255,255,.08);border-radius:4px}
+#v-hl .hl-warn{display:inline-block;margin-left:8px;padding:2px 10px;border-radius:999px;font-size:12px;background:rgba(251,191,36,.16);color:#fbbf24;font-weight:500}
+#v-hl .hl-hint{color:var(--mute);font-size:13px;margin:6px 0 0}
 /* analysis layers */
 .track{display:flex;gap:6px 18px;flex-wrap:wrap;align-items:center;font-size:13.5px;color:var(--mute);margin:-2px 0 4px}.track b{color:var(--ink)}
 .lnk{color:var(--c1);text-decoration:underline;margin-left:4px}
@@ -133,9 +144,9 @@ details{margin-top:8px;color:var(--mute);font-size:12.5px}details summary{cursor
   <p class="sub">กรอกรหัส 4 หลักเพื่อเข้าดูข้อมูล</p>
   <div class="pin" id="pin">
    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 1">
-   <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 0">
    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 2">
-   <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 6">
+   <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 3">
+   <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" aria-label="รหัสหลักที่ 4">
   </div>
   <p class="lockmsg" id="lockmsg"></p>
   <label class="rem"><input type="checkbox" id="rem"> จำเครื่องนี้</label>
@@ -146,6 +157,7 @@ details{margin-top:8px;color:var(--mute);font-size:12.5px}details summary{cursor
   <div class="brand">แดชบอร์ดยอดขาย</div>
   <nav id="tabs">
    <button data-t="ov" class="on">ภาพรวม</button>
+   <button data-t="hl">ไฮไลท์สำหรับพรีเซ็นต์</button>
    <button data-t="prod">ข้อมูลรายสินค้า</button>
    <button data-t="ch">ข้อมูลรายช่องทางขาย</button>
    <button data-t="cat">ข้อมูลตามหมวดสินค้า</button>
@@ -276,6 +288,11 @@ details{margin-top:8px;color:var(--mute);font-size:12.5px}details summary{cursor
   <div class="card"><h2>รุ่นที่ไม่มียอดเกิน 30 วัน (เรียงจากเงียบนานที่สุด)</h2><div class="scroll tall2"><table id="dd-tbl"></table></div></div>
  </section>
 
+ <section id="v-hl" hidden>
+  <div class="bar"><label>เดือน <select id="hl-m"></select></label><span class="sub" id="hl-note"></span></div>
+  <div id="hl-body"></div>
+ </section>
+
  <section id="v-an" hidden>
   <div class="bar"><label>เดือนที่ใช้วิเคราะห์ <select id="an-mon"></select></label><span class="sub" id="an-note"></span></div>
   <div id="an-top" class="card l1" style="margin-bottom:12px"><h2>สรุป 5 นาที</h2><div id="an-verdict"></div><div class="grid kpis" id="an-kpi"></div><div class="track" id="an-track"></div>
@@ -330,8 +347,8 @@ const provN = v => /^(กทม\.?|กรุงเทพ(ฯ|มหานคร)
 let ROWS = [], LEADS = [], OFFS = [], CHAT = { shopee: [], fb: [] }, chMonths = [], DBRNG = {}, LDRNG = {}, SORNG = {};
 // แท็บหมวด/ประเภท/กลุ่มสินค้า (col = ชื่อหัวคอลัมน์ใน Sheet; ถ้าหัวคอลัมน์มีข้อความต่อท้าย เช่น "- เพิ่มใหม่" ก็อ่านได้)
 const CATS = [ { k:'cat', tab:'หมวดสินค้า', col:'หมวดสินค้า' }, { k:'typ', tab:'ประเภทสินค้า', col:'ประเภทสินค้า' }, { k:'grp', tab:'กลุ่มสินค้า', col:'กลุ่มสินค้า' } ];
-const TABS = ['ov', 'prod', 'ch', ...CATS.map(c => c.k), 'ship', 'per', 'pay', 'ld', 'chat', 'so', 'debt', 'dead', 'an'];
-const TITLES = { ov: 'ภาพรวม', prod: 'ข้อมูลรายสินค้า', ch: 'ข้อมูลรายช่องทางขาย', cat: 'ข้อมูลตามหมวดสินค้า', typ: 'ข้อมูลตามประเภทสินค้า', grp: 'ข้อมูลตามกลุ่มสินค้า', ship: 'ข้อมูลการจัดส่ง', per: 'ข้อมูลตามช่วงเวลาขาย', pay: 'ข้อมูลช่องทางการชำระเงิน', ld: 'ข้อมูล Lead ลูกค้า', chat: 'ข้อมูลการตอบแชท', so: 'ยอดขายตาม SO รายเดือน', debt: 'รายงานยอดคงค้างทั้งหมด', dead: 'รายงานสินค้าไม่หมุนเวียน', an: 'วิเคราะห์' };
+const TABS = ['hl', 'ov', 'prod', 'ch', ...CATS.map(c => c.k), 'ship', 'per', 'pay', 'ld', 'chat', 'so', 'debt', 'dead', 'an'];
+const TITLES = { hl: 'ไฮไลท์สำหรับพรีเซ็นต์', ov: 'ภาพรวม', prod: 'ข้อมูลรายสินค้า', ch: 'ข้อมูลรายช่องทางขาย', cat: 'ข้อมูลตามหมวดสินค้า', typ: 'ข้อมูลตามประเภทสินค้า', grp: 'ข้อมูลตามกลุ่มสินค้า', ship: 'ข้อมูลการจัดส่ง', per: 'ข้อมูลตามช่วงเวลาขาย', pay: 'ข้อมูลช่องทางการชำระเงิน', ld: 'ข้อมูล Lead ลูกค้า', chat: 'ข้อมูลการตอบแชท', so: 'ยอดขายตาม SO รายเดือน', debt: 'รายงานยอดคงค้างทั้งหมด', dead: 'รายงานสินค้าไม่หมุนเวียน', an: 'วิเคราะห์' };
 const YEAR_TABS = ['prod', 'ch', 'cat', 'typ', 'grp', 'ship', 'per', 'pay'];   // แท็บที่แสดงตัวเลือกปี
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -889,11 +906,117 @@ function renderDead() {
 }
 
 /* ===== รายงานยอดคงค้างทั้งหมด (ทุกแถวที่ยอดคงค้าง > 0 ไม่จำกัดเดือน) ===== */
-function renderDebt() {
+
+/* ===== หน้าไฮไลท์สำหรับพรีเซ็นต์ (ยอดขาย SO · Lead · ช่องทาง · ยอดคงค้าง · สิ่งที่ขอ) ===== */
+let TGT = [];   // เป้าขายจากแท็บ "เป้าขาย" ใน Google Sheet: { m: 'YYYY-MM', ch: ชื่อช่องทาง (ว่าง = เป้ารวม), v: บาท }
+const HL_ASKS = [['ฝ่ายขาย', 'อัปเดตไฟล์ Lead ทันทีเมื่อปิดการขายหรือติดตามลูกค้า', 'ทันที'], ['ฝ่ายขาย', 'หาคำตอบว่าทำไมลูกค้าให้ 4 ดาวแต่ไม่ซื้อ', '____'],
+  ['ฝ่ายขาย / บัญชี', 'รีวิวยอดคงค้าง เริ่มจาก 5 รายแรก ว่าเก็บเงินแล้วหรือยัง', '____'], ['ทุกคนที่ลงข้อมูล', 'ลงชื่อ SKU ให้ตรงกัน เช่น M5 Pro (ไม่ใช่ M5Pro / M5-Pro)', '____']];
+function tgtMonth(v) {   // รับ 2026-10, 10/2026, ต.ค. 69, ตุลาคม 2569, วันที่เต็ม → 'YYYY-MM'
+  const s = String(v ?? '').trim(); if (!s) return '';
+  let a, y;
+  if ((a = s.match(/^(\d{4})[-\/](\d{1,2})$/))) { y = +a[1]; if (y > 2400) y -= 543; return y + '-' + a[2].padStart(2, '0'); }
+  if ((a = s.match(/^(\d{1,2})[-\/](\d{4})$/))) { y = +a[2]; if (y > 2400) y -= 543; return y + '-' + a[1].padStart(2, '0'); }
+  const TM = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'], TS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  let mi = TM.findIndex(x => s.includes(x)); if (mi < 0) mi = TS.findIndex(x => s.includes(x));
+  if (mi >= 0 && (a = s.match(/(\d{4}|\d{2})\s*$/))) { y = +a[1]; if (y < 100) y += 2500; if (y > 2400) y -= 543; return y + '-' + String(mi + 1).padStart(2, '0'); }
+  const d = parseDate(s); return d ? d.slice(0, 7) : '';
+}
+function tgtOf(m, ch) {   // ch = null → เป้ารวม (ถ้าไม่มีเป้ารวม ใช้ผลรวมเป้ารายช่องทาง)
+  const ms = TGT.filter(t => t.m === m); if (!ms.length) return null;
+  if (ch == null) { const a = ms.find(t => !t.ch || ['รวม', 'ทั้งหมด', 'total', 'all'].includes(t.ch)); return a ? a.v : ms.reduce((x, t) => x + t.v, 0); }
+  const c = ms.find(t => t.ch === norm(ch)); return c ? c.v : null;
+}
+function renderHl() {
+  const m = $('hl-m').value, body = $('hl-body');
+  if (!m) { body.innerHTML = '<div class="card"><p class="empty">ไม่มีข้อมูล</p></div>'; return; }
+  const P = mPrev(m), net = rs => rs.reduce((a, r) => a + r.net, 0), chOf = r => r.ch || 'ไม่ระบุ';
+  const so = group(ROWS.filter(r => r.sod), r => r.sod.slice(0, 7), () => [], (a, r) => a.push(r)), inc = group(ROWS.filter(r => r.date), r => r.date.slice(0, 7), () => [], (a, r) => a.push(r));
+  const soOf = k => so.get(k) || [], incOf = k => inc.get(k) || [], st = rs => { const o = nOrd(rs), v = net(rs); return { o, v, a: o ? v / o : 0 }; };
+  const sg = v => (v >= 0 ? '+' : '−') + moneyS(Math.abs(v)), pc = x => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(1) + '%';
+  const card = (l, v, d, c) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${v}</div><div class="d">${d || ''}</div></div>`;
+  const sec = (n, t, sent, inner) => `<div class="card hl-sec"><h2 class="hl-h"><span class="hl-n">${n}</span>${t}</h2><p class="hl-s">${sent}</p>${inner}</div>`;
+  const raw = (heads, rows) => '<div class="scroll"><table><tr>' + heads.map((h, i) => `<th class="${i ? 'r' : ''}">${h}</th>`).join('') + '</tr>' + rows.map(r => '<tr>' + r.map((c, i) => `<td class="${i ? 'r' : ''}">${c}</td>`).join('') + '</tr>').join('') + '</table></div>';
+
+  // --- ยอดขาย SO / รายรับ / เป้า ---
+  const cur = st(soOf(m)), prv = st(soOf(P)), okP = prv.o > 0 && monthDone(P, SORNG), okM = monthDone(m, SORNG);
+  const rcM = net(incOf(m)), rcP = net(incOf(P)), okRP = rcP > 0 && monthDone(P, DBRNG), gap = rcM - cur.v, tgt = tgtOf(m, null);
+  const momTxt = (c, p, ok) => ok ? pctH(c, p) + ' MoM' : '';
+  const tgtTxt = tgt ? `เป้า ${moneyS(tgt)} · ได้ ${(cur.v / tgt * 100).toFixed(0)}%` : '';
+
+  // --- Lead ---
+  const ldOf = k => LEADS.filter(r => r.date.startsWith(k)), L = ldOf(m), LP = ldOf(P);
+  const lc = L.length, lb = L.filter(r => r.bought).length, lr = lc ? lb / lc * 100 : null, lpr = LP.length ? LP.filter(r => r.bought).length / LP.length * 100 : null;
+  const okLP = LP.length > 0 && monthDone(P, LDRNG), okLM = monthDone(m, LDRNG), ci = lc ? 1.96 * Math.sqrt((lr / 100) * (1 - lr / 100) / lc) * 100 : null;
+  const ptTxt = lr != null && lpr != null && okLP ? `<span class="${lr - lpr >= 0 ? 'up' : 'dn'}">${lr - lpr >= 0 ? '▲' : '▼'}&#8202;${Math.abs(lr - lpr).toFixed(1)} จุด</span> จากเดือนก่อน` : '';
+
+  // --- ช่องทาง ---
+  const gM = group(soOf(m), chOf, () => [], (a, r) => a.push(r)), gP = group(soOf(P), chOf, () => [], (a, r) => a.push(r));
+  const chs = [...new Set([...gM.keys(), ...gP.keys()])].map(k => ({ k, a: st(gM.get(k) || []), b: st(gP.get(k) || []), t: tgtOf(m, k) })).map(c => ({ ...c, d: c.a.v - c.b.v })).sort((x, y) => y.a.v - x.a.v);
+  const anyT = tgt != null || chs.some(c => c.t != null), drv = okP ? [...chs].sort((x, y) => y.d - x.d)[0] : null, drg = okP ? [...chs].sort((x, y) => x.d - y.d)[0] : null;
+
+  // --- ยอดคงค้าง ---
+  const { tot: dTot, list: dl, rs: drs } = debtData(), top5 = dl.slice(0, 5), t5 = top5.reduce((a, x) => a + x.v, 0), ref = DBRNG.max || '';
+  const dN = d => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 864e5, bk = [['0–30 วัน', 0, 30], ['31–60 วัน', 31, 60], ['61–90 วัน', 61, 90], ['เกิน 90 วัน', 91, 1e9]];
+  const age = bk.map(([l, lo, hi]) => ({ l, v: drs.filter(r => r.date && ref && (dN(ref) - dN(r.date)) >= lo && (dN(ref) - dN(r.date)) <= hi).reduce((a, r) => a + r.ar, 0) }));
+  const noDate = drs.filter(r => !r.date).reduce((a, r) => a + r.ar, 0); if (noDate) age.push({ l: 'ไม่ระบุวันที่', v: noDate });
+
+  // --- ประโยคสรุปหัวหน้า ---
+  const tone = okP ? ((cur.v - prv.v) / (prv.v || 1) * 100 >= 5 ? 'hi' : (cur.v - prv.v) / (prv.v || 1) * 100 <= -5 ? 'lo' : 'md') : 'md', lab = tone === 'hi' ? 'ดี' : tone === 'lo' ? 'ควรระวัง' : 'ปกติ';
+  let vt = `${monthName(m)}: ยอดขาย SO ${money(cur.v)}` + (okP ? ` ${cur.v >= prv.v ? 'เพิ่มขึ้น' : 'ลดลง'} ${pc((cur.v - prv.v) / (prv.v || 1) * 100).replace(/^[+−]/, '')} จากเดือนก่อน` : '') + (tgt ? ` · ได้ ${(cur.v / tgt * 100).toFixed(0)}% ของเป้า` : '');
+  if (drg && drg.d < 0) vt += ` · ช่องทางที่ฉุดมากสุดคือ ${esc(drg.k)} (${sg(drg.d)})`;
+  if (lr != null) vt += ` · อัตราปิด Lead ${lr.toFixed(0)}%`;
+  if (!okM) vt += ' (ข้อมูลเดือนนี้ยังไม่ครบ)';
+
+  // --- ประกอบหน้า ---
+  const top = `<div class="verdict ${tone}"><span class="cf ${tone}">${lab}</span><p>${vt}</p></div><div class="hl-4">` +
+    card('ยอดขาย SO', money(cur.v), [momTxt(cur.v, prv.v, okP), tgtTxt].filter(Boolean).join('<br>'), '--c1') +
+    card('รายรับ (ตามวันที่ซื้อ)', money(rcM), momTxt(rcM, rcP, okRP), '--c2') +
+    card('อัตราปิด Lead', lr == null ? '-' : lr.toFixed(1) + '%', ptTxt, '--c3') +
+    card('ยอดคงค้างรวม', money(dTot), `${fmt(dl.length)} ราย <span class="hl-warn">รอตรวจสอบ</span>`, '--c4') + '</div>';
+
+  const s1 = sec(1, 'ยอดขายจริง (ตามเลข SO) เทียบเดือนก่อน' + (anyT ? ' และเป้า' : ''),
+    `ยอดขาย SO ${money(cur.v)}` + (okP ? ` ${cur.v >= prv.v ? 'เพิ่มขึ้น' : 'ลดลง'} ${pc((cur.v - prv.v) / (prv.v || 1) * 100).replace(/^[+−]/, '')}` : '') + ` · รายรับ ${money(rcM)} · ส่วนต่าง ${sg(gap)} (FO + เก็บเงิน)`,
+    `<div class="hl-4">` + card('จำนวน SO (ออเดอร์)', fmt(cur.o), momTxt(cur.o, prv.o, okP), '--c2') +
+    card('AOV (ยอดขาย SO ÷ SO)', '฿' + fmt(cur.a), momTxt(cur.a, prv.a, okP), '--c3') + card('ส่วนต่าง (FO + เก็บเงิน)', sg(gap), `รายรับ ${moneyS(rcM)} − SO ${moneyS(cur.v)}`, '--c4') +
+    (tgt ? card('เทียบเป้า', (cur.v / tgt * 100).toFixed(0) + '%', `เป้า ${moneyS(tgt)} · ${cur.v >= tgt ? 'เกินเป้า' : 'ขาด ' + moneyS(tgt - cur.v)}`, '--c1') : '') + '</div>' +
+    '<div id="hl-c1"></div>' + (anyT ? '' : '<p class="hl-hint">ยังไม่มีเป้าขาย: เพิ่มแท็บ "เป้าขาย" ใน Google Sheet แล้วเป้าจะแสดงที่นี่</p>'));
+
+  const s2 = sec(2, 'Lead ภาพรวม (ทุกช่องทาง)', lc ? `Lead ${fmt(lc)} ราย ปิดได้ ${fmt(lb)} ราย (${lr.toFixed(0)}%)` + (okLP ? ` · เดือนก่อน ${fmt(LP.length)} ราย (${lpr.toFixed(0)}%)` : '') + ` · อัตราปิดคลาดเคลื่อนได้ราว ±${ci.toFixed(0)} จุด เพราะตัวอย่างน้อย` : 'ไม่มีข้อมูล Lead ของเดือนนี้',
+    `<div class="hl-4">` + card('จำนวน Lead', fmt(lc), momTxt(lc, LP.length, okLP && okLM), '--c1') + card('ปิดการขายได้', fmt(lb), momTxt(lb, LP.filter(r => r.bought).length, okLP && okLM), '--c2') +
+    card('ช่วงคลาดเคลื่อน (95%)', ci == null ? '-' : '±' + ci.toFixed(1) + ' จุด', `จาก ${fmt(lc)} ราย · ข้อมูล Lead ถึง ${LDRNG.max ? dateTh(LDRNG.max) : '-'}`, '--c4') + '</div><div id="hl-c2"></div>');
+
+  const chRows = chs.map(c => [esc(c.k), fmt(c.a.v), c.b.v > 0 ? (okP ? pctH(c.a.v, c.b.v) : '-') : (c.a.v > 0 ? 'ใหม่' : '-'), `<span class="${c.d >= 0 ? 'up' : 'dn'}">${sg(c.d)}</span>`, c.a.o ? '฿' + fmt(c.a.a) : '-', ...(anyT ? [c.t != null ? fmt(c.t) : '-', c.t ? (c.a.v / c.t * 100).toFixed(0) + '%' : '-'] : [])]);
+  const tM = st(soOf(m)), totRow = ['<b>รวม</b>', `<b>${fmt(tM.v)}</b>`, okP ? pctH(tM.v, prv.v) : '-', `<b>${okP ? sg(tM.v - prv.v) : '-'}</b>`, tM.o ? '<b>฿' + fmt(tM.a) + '</b>' : '-', ...(anyT ? [tgt != null ? `<b>${fmt(tgt)}</b>` : '-', tgt ? `<b>${(tM.v / tgt * 100).toFixed(0)}%</b>` : '-'] : [])];
+  const s3 = sec(3, 'ความสามารถแต่ละช่องทาง (ยอดขายตามเลข SO)', drv && drg ? `ช่องทางที่ดันยอดมากสุด ${esc(drv.k)} (${sg(drv.d)}) · ฉุดมากสุด ${esc(drg.k)} (${sg(drg.d)}) เทียบเดือนก่อน` : 'ไม่มีเดือนก่อนที่ข้อมูลครบให้เทียบ',
+    raw(['ช่องทาง', 'ยอด SO (฿)', 'เทียบเดือนก่อน', 'ส่วนต่าง', 'AOV', ...(anyT ? ['เป้า (฿)', '% ของเป้า'] : [])], [...chRows, totRow]));
+
+  const s4 = sec(4, 'ยอดคงค้างที่เหลือ <span class="hl-warn">ข้อมูลรอตรวจสอบ</span>', `ยอดคงค้างรวม ${money(dTot)} จาก ${fmt(dl.length)} ราย · 5 รายแรกรวม ${money(t5)} (${dTot ? (t5 / dTot * 100).toFixed(0) : 0}%)`,
+    raw(['ลูกค้า (5 รายแรก)', 'เลข SO', 'วันที่ซื้อ', 'ยอดคงค้าง (฿)', 'สัดส่วน'], top5.map(x => [esc(x.k), esc(x.so), esc(x.dt), fmt(x.v), (x.v / (dTot || 1) * 100).toFixed(1) + '%'])) +
+    '<div style="height:10px"></div>' + raw(['อายุหนี้ (นับจากวันที่ซื้อถึงข้อมูลล่าสุด)', 'ยอดคงค้าง (฿)', 'สัดส่วน'], age.map(a => [a.l, fmt(a.v), dTot ? (a.v / dTot * 100).toFixed(0) + '%' : '-'])));
+
+  let asks = HL_ASKS; try { const sv = JSON.parse(localStorage.getItem('hl_asks') || 'null'); if (Array.isArray(sv) && sv.length) asks = sv; } catch (e) {}
+  const s5 = sec(5, 'สิ่งที่ขอจากที่ประชุม', 'คลิกที่ข้อความเพื่อพิมพ์แก้ได้ในหน้านี้ (บันทึกไว้ในเบราว์เซอร์เครื่องนี้)',
+    '<div class="scroll"><table id="hl-asks"><tr><th>#</th><th>ใคร</th><th>ทำอะไร</th><th>เมื่อไร</th></tr>' + asks.map((a, i) => `<tr><td>${i + 1}</td>` + [0, 1, 2].map(j => `<td contenteditable="true">${esc(a[j] || '')}</td>`).join('') + '</tr>').join('') + '</table></div>');
+
+  $('sub').textContent = monthName(m);
+  $('hl-note').textContent = `ยอดขายถึง ${DBRNG.max ? dateTh(DBRNG.max) : '-'} · Lead ถึง ${LDRNG.max ? dateTh(LDRNG.max) : '-'}`;
+  body.innerHTML = top + s1 + s2 + s3 + s4 + s5;
+
+  const win = Array.from({ length: 6 }, (_, i) => { let k = m; for (let j = 0; j < 5 - i; j++) k = mPrev(k); return k; });
+  gbars('hl-c1', win.map(k => mShort(k)), [{ name: 'ยอดขาย SO', color: '--c1', vals: win.map(k => soOf(k).length ? net(soOf(k)) : null) }, { name: 'รายรับ', color: '--c2', vals: win.map(k => incOf(k).length ? net(incOf(k)) : null) }], short);
+  gbars('hl-c2', win.map(k => mShort(k)), [{ name: 'Lead', color: '--c1', vals: win.map(k => ldOf(k).length || null) }, { name: 'ปิดได้', color: '--c2', vals: win.map(k => ldOf(k).length ? ldOf(k).filter(r => r.bought).length : null) }], fmt);
+  try { const tb = $('hl-asks'); tb.addEventListener('input', () => { try { localStorage.setItem('hl_asks', JSON.stringify([...tb.querySelectorAll('tr')].slice(1).map(tr => [...tr.querySelectorAll('td[contenteditable]')].map(td => td.textContent.trim())))); } catch (e) {} }); } catch (e) {}
+}
+
+function debtData() {
   const rs = ROWS.filter(r => r.ar > 0), tot = rs.reduce((a, r) => a + r.ar, 0);
   const real = r => /^\(ว่าง\)/.test(r.order) ? '' : r.order;
   const list = [...group(rs, r => r.cust || 'ไม่ระบุ', () => ({ v: 0, rs: [] }), (a, r) => { a.v += r.ar; a.rs.push(r); })].map(([k, a]) => ({ k, v: a.v, o: nOrd(a.rs),
     so: [...new Set(a.rs.map(real).filter(Boolean))].join(', ') || '-', dt: [...new Set(a.rs.map(r => r.date).filter(Boolean))].sort().map(dateTh).join(', ') || '-' })).sort((a, b) => b.v - a.v);
+  return { rs, tot, list };
+}
+function renderDebt() {
+  const { rs, tot, list } = debtData();
   $('sub').textContent = DBRNG.max ? 'ข้อมูลถึง ' + dateTh(DBRNG.max) : '';
   $('debt-kpi').innerHTML = [['ยอดคงค้างรวม', money(tot), '--c1'], ['ลูกค้าที่มียอดค้าง', fmt(list.length) + ' ราย', '--c2'], ['ออเดอร์ที่ยังค้าง', fmt(nOrd(rs)), '--c3']]
     .map(([l, v, c]) => `<div class="card kpi" style="--a:var(${c})"><div class="l">${l}</div><div class="v">${v}</div></div>`).join('');
@@ -1290,7 +1413,7 @@ function showTab(t) {
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
   if (t === 'ov') render(); else {
     const ms = monthsList(); $('sub').textContent = ms.length ? 'ทั้งปี ' + (+ms[0].slice(0,4) + 543) : '';
-    t === 'prod' ? renderProd() : t === 'ch' ? renderCh() : t === 'ship' ? renderShip() : t === 'pay' ? renderPay() : t === 'per' ? renderPer() : t === 'ld' ? renderLd() : t === 'chat' ? renderChat() : t === 'so' ? renderSO() : t === 'debt' ? renderDebt() : t === 'dead' ? renderDead() : t === 'an' ? renderAn() : renderCat(t);
+    t === 'prod' ? renderProd() : t === 'ch' ? renderCh() : t === 'ship' ? renderShip() : t === 'pay' ? renderPay() : t === 'per' ? renderPer() : t === 'ld' ? renderLd() : t === 'chat' ? renderChat() : t === 'so' ? renderSO() : t === 'debt' ? renderDebt() : t === 'dead' ? renderDead() : t === 'an' ? renderAn() : t === 'hl' ? renderHl() : renderCat(t);
   }
 }
 
@@ -1337,6 +1460,8 @@ async function init() {
     });
     SORNG = rangeOf(ROWS.map(r => r.sod)); DBRNG = rangeOf(ROWS.map(r => r.date)); LDRNG = rangeOf(LEADS.map(r => r.date));
     CHAT = Object.assign({ shopee: [], fb: [] }, j.chat || {});
+    TGT = (j.targets || []).map(r => { const n = {}; for (const k in r) n[norm(k)] = r[k]; const g = nm => { const q = norm(nm), k = Object.keys(n).find(x => x.startsWith(q)); return k === undefined ? '' : n[k]; };
+      return { m: tgtMonth(g('เดือน')), ch: norm(g('ช่องทาง')), v: num(g('เป้า')) }; }).filter(t => t.m && t.v > 0);
     if (j._chatErr && $('msg').style.display !== 'block') warn('แท็บแชท: ' + j._chatErr);
     if (!LEADS.length && $('msg').style.display !== 'block') warn('ไม่พบแถวข้อมูลในแท็บ Lead (แท็บที่อ่าน: ' + (j._leadSheet || 'ไม่พบ') + ' · แท็บทั้งหมด: ' + (j._sheetNames || []).join(', ') + ')');
   } catch (e) { warn('โหลดข้อมูลไม่สำเร็จ (' + e.message + ')'); $('sub').textContent = 'ไม่มีข้อมูล'; }
@@ -1384,6 +1509,8 @@ async function init() {
   const oc = new Map(); LEADS.forEach(r => r.offs.forEach(o => oc.set(o, (oc.get(o) || 0) + 1)));
   OFFS = [...oc.keys()].filter(o => o !== 'ทั้งทีมฝ่ายขาย').sort((a, b) => ((a === 'ไม่ทราบ') - (b === 'ไม่ทราบ')) || oc.get(b) - oc.get(a));
   const lys = [...new Set(LEADS.map(r => r.date.slice(0,4)).filter(Boolean))].sort().reverse();
+  { const hlM = [...new Set([...ROWS.filter(r => r.sod).map(r => r.sod.slice(0, 7)), ...ROWS.map(r => r.date.slice(0, 7))].filter(Boolean))].sort().reverse();
+    $('hl-m').innerHTML = hlM.map(k => `<option value="${k}">${monthName(k)}</option>`).join(''); $('hl-m').value = hlM.find(k => monthDone(k, SORNG) && monthDone(k, DBRNG)) || hlM[0] || ''; $('hl-m').addEventListener('change', renderHl); }
   $('ld-y').innerHTML = '<option value="all">ทุกปี</option>' + lys.map(y => `<option value="${y}">${+y + 543}</option>`).join('');
   $('ld-m').innerHTML = '<option value="all">ทุกเดือน</option>' + Array.from({ length: 12 }, (_, i) => `<option value="${String(i + 1).padStart(2, '0')}">${new Date(2000, i, 1).toLocaleDateString('th-TH', { month: 'long' })}</option>`).join('');
   $('ld-o').innerHTML = '<option value="all">ทุกคน</option>' + OFFS.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
